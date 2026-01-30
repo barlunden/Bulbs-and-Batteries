@@ -1,0 +1,143 @@
+---
+export const prerender = false;
+import Layout from "../layouts/Layout.astro";
+import StockRefillCard from "../components/StockRefillCard.astro";
+import { supabase } from "../lib/supabase";
+import type { StockItem } from "../types/inventory";
+
+// 1. AUTH SJEKK i src/middleware.ts
+
+// 2. ACTION HÅNDTERING (POST)
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const action = data.get("action");
+
+    // Juster eksisterande lager (+/-)
+    if (action === "adjust_stock") {
+      const stockId = data.get("stockId");
+      const adjustment = Number(data.get("adjustment"));
+      const { data: curr } = await supabase.from("stock").select("current_count").eq("id", stockId).single();
+      if (curr) {
+        await supabase.from("stock").update({ 
+            current_count: Math.max(0, (curr.current_count || 0) + adjustment) 
+        }).eq("id", stockId);
+      }
+    }
+
+    // Registrer heilt ny varetype med antal
+    else if (action === "add_new_stock_type") {
+      await supabase.from("stock").insert([{
+        type: data.get("type")?.toString().toUpperCase(),
+        shape: data.get("shape")?.toString() || "",
+        category: data.get("category"),
+        current_count: Number(data.get("initialCount") || 0),
+        min_threshold: Number(data.get("minThreshold") || 2),
+      }]);
+    }
+  } catch (error: any) {
+    console.error("Lager-feil:", error.message);
+  }
+}
+
+// 3. HENT LAGERDATA
+// 3. HENT LAGERDATA (Sortert etter kategori, så type)
+const { data: dbStock } = await supabase
+  .from("stock")
+  .select("*")
+  .order("category", { ascending: true }) // Batteri kjem før Bulb (B før B, men vi kan tvinge rekkefølgja)
+  .order("type", { ascending: true });
+
+const stockItems: StockItem[] = (dbStock || []).map(s => ({
+  id: s.id, 
+  type: s.type, 
+  category: s.category, 
+  currentCount: s.current_count, 
+  minThreshold: s.min_threshold, 
+  shape: s.shape
+}));
+---
+
+<Layout title="Lagerbeholdning">
+  <main class="max-w-md mx-auto px-6 pt-8 pb-32">
+    
+    <header class="mb-8">
+      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Lager & Innkjøp</h1>
+      <p class="text-slate-500 text-sm italic">Her held du styr på kva som finst i skapet.</p>
+    </header>
+
+    <section class="bg-indigo-600 p-6 rounded-[2rem] shadow-xl shadow-indigo-100 mb-10">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="bg-white/20 p-2 rounded-xl text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
+        <h2 class="text-white font-black uppercase tracking-widest text-xs">Registrer nytt innkjøp</h2>
+      </div>
+
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="action" value="add_new_stock_type" />
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[9px] font-black text-indigo-200 uppercase mb-1 ml-1">Type (E27, AA)</label>
+            <input type="text" name="type" required class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none focus:bg-white/20" />
+          </div>
+          <div>
+            <label class="block text-[9px] font-black text-indigo-200 uppercase mb-1 ml-1">Form</label>
+            <select name="shape" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none">
+              <option value="">Standard</option>
+              <option value="Candle">Krone</option>
+              <option value="Globe">Globe</option>
+              <option value="Spot">Spot</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[9px] font-black text-indigo-200 uppercase mb-1 ml-1">Antall kjøpt</label>
+            <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+          </div>
+          <div>
+            <label class="block text-[9px] font-black text-indigo-200 uppercase mb-1 ml-1">Kategori</label>
+            <select name="category" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white outline-none">
+              <option value="bulb">Pære</option>
+              <option value="battery">Batteri</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-white text-indigo-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
+          LEGG TIL PÅ LAGER
+        </button>
+      </form>
+    </section>
+
+    <section>
+  <div class="flex items-center justify-between mb-4 px-2">
+    <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Gjeldande beholdning</h2>
+  </div>
+  
+  <div class="grid gap-6">
+    {['battery', 'bulb'].map(cat => {
+      const itemsInCategory = stockItems.filter(i => i.category === cat);
+      if (itemsInCategory.length === 0) return null;
+      
+      return (
+        <div class="space-y-3">
+          <h3 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-2">
+            {cat === 'battery' ? '🔋 Batteri' : '💡 Lyspærer'}
+          </h3>
+          <div class="grid gap-3">
+            {itemsInCategory.map(item => (
+              <StockRefillCard {...item} />
+            ))}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</section>
+
+  </main>
+</Layout>

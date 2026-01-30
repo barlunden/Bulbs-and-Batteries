@@ -1,0 +1,38 @@
+---
+// src/components/StockRefillCard.astro
+const { id, type, shape, currentCount, minThreshold } = Astro.props;
+const isLow = currentCount <= minThreshold;
+---
+
+<div class={`p-4 rounded-2xl border-2 transition-all shadow-sm ${isLow ? 'border-amber-400 bg-amber-50 shadow-amber-100' : 'border-slate-100 bg-white'}`}>
+  <div class="flex justify-between items-start mb-3">
+    <div class="overflow-hidden">
+      <h3 class="font-black text-slate-900 leading-tight truncate">{type}</h3>
+      <p class="text-[9px] text-slate-500 uppercase font-bold tracking-wider truncate">{shape || 'Standard'}</p>
+    </div>
+    <div class="flex flex-col items-end">
+        <span class={`text-xl font-black leading-none ${isLow ? 'text-amber-600' : 'text-slate-900'}`}>
+            {currentCount}
+        </span>
+        {isLow && <span class="text-[8px] font-black text-amber-600 uppercase mt-1 animate-pulse">Lavt nivå</span>}
+    </div>
+  </div>
+
+  <form method="POST" class="flex gap-2">
+    <input type="hidden" name="action" value="adjust_stock" />
+    <input type="hidden" name="stockId" value={id} />
+    
+    <div class="relative flex-1">
+        <input 
+            type="number" 
+            name="adjustment" 
+            placeholder="Sett inn antall..." 
+            class="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+        />
+    </div>
+    
+    <button type="submit" class="bg-indigo-600 text-white px-3 rounded-lg hover:bg-indigo-500 transition-all active:scale-90 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+    </button>
+  </form>
+</div>

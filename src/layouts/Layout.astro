@@ -1,0 +1,48 @@
+---
+import "../styles/global.css"
+const { title } = Astro.props;
+import Nav from "../components/Nav.astro";
+
+// Hent data frå middleware (vår sentrale vaktpost)
+const user = Astro.locals.user;
+const userEmail = user?.email;
+const householdId = Astro.locals.householdId;
+---
+<!doctype html>
+<html lang="no">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title} | Bulbs & Batteries</title>
+	</head>
+	<body class="bg-slate-50 pb-32 font-sans">
+		
+		<header class="max-w-md mx-auto px-6 py-8 flex justify-between items-center">
+			<div class="flex items-center gap-3">
+				<div class="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black italic shadow-lg shadow-indigo-200">
+					B&B
+				</div>
+				<div>
+					<span class="block font-black uppercase tracking-tighter text-sm leading-none text-slate-900">Bulbs & Batteries</span>
+					<span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vedlikehaldssystem</span>
+				</div>
+			</div>
+			
+			{userEmail && (
+				<div class="flex flex-col items-end">
+					<span class="text-[8px] font-black uppercase text-slate-400 tracking-widest">Brukar</span>
+					<span class="text-[10px] font-bold text-slate-900 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">
+						{userEmail.split('@')[0]}
+					</span>
+				</div>
+			)}
+		</header>
+
+		<slot />
+
+		<Nav />
+
+	</body>
+</html>

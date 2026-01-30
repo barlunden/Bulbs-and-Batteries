@@ -1,0 +1,200 @@
+---
+export const prerender = false;
+import Layout from "../layouts/Layout.astro";
+import InventoryCard from "../components/InventoryCard.astro";
+import { supabase } from "../lib/supabase";
+import type { InventoryItem, StockItem } from "../types/inventory";
+
+// 1. AUTH SJEKK I src/middleware.ts
+
+// 2. ACTION HÅNDTERING
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const action = data.get("action");
+
+    // BYTT PÆRE / BATTERI (Trekk frå lager)
+    // Finn denne blokka i src/pages/enheter.astro:
+if (action === "replace_item") {
+  const type = data.get("itemType")?.toString();
+  const shape = data.get("itemShape")?.toString() || ""; // Kan vere tom streng
+  const count = Number(data.get("count") || 1);
+
+  // REPARASJON: Vi må sjekke om vi skal søke med eller utan shape
+  let query = supabase
+    .from("stock")
+    .select("id, current_count")
+    .eq("type", type);
+
+  // Viss shape finst, legg vi det til i søket, 
+  // viss ikkje søker vi etter der shape er tom eller null
+  if (shape && shape !== "null" && shape !== "") {
+    query = query.eq("shape", shape);
+  } else {
+    // Dette er trikset for batteri:
+    query = query.or('shape.is.null,shape.eq.""');
+  }
+
+  const { data: stock, error: fetchError } = await query.single();
+
+  if (stock) {
+    const { error: updateError } = await supabase.from("stock")
+      .update({ current_count: Math.max(0, (stock.current_count || 0) - count) })
+      .eq("id", stock.id);
+      
+    if (updateError) console.error("Update error:", updateError.message);
+  } else {
+    console.error("Fann ikkje varen på lager:", type, shape);
+  }
+}
+
+    // REGISTRER NY EINING (Lampe/Utstyr)
+    else if (action === "create") {
+      await supabase.from("items").insert([{
+        name: data.get("name"),
+        category: data.get("category"),
+        type: data.get("type")?.toString().toUpperCase(),
+        location: data.get("location"),
+        required_count: Number(data.get("requiredCount") || 1),
+        shape: data.get("shape"),
+        color_temp: data.get("colorTemp"),
+        notes: data.get("notes"),
+      }]);
+    }
+
+    // SLETT EINING
+    else if (action === "delete") {
+      await supabase.from("items").delete().eq("id", data.get("itemId"));
+    }
+  } catch (error: any) {
+    console.error("Enhets-feil:", error.message);
+  }
+}
+
+// 3. DATA QUERY
+const { data: dbItems } = await supabase.from("items").select("*").order("location", { ascending: true });
+const { data: dbStock } = await supabase.from("stock").select("*");
+
+const items: InventoryItem[] = (dbItems || []).map(i => ({
+  id: i.id, name: i.name, category: i.category, type: i.type, location: i.location,
+  requiredCount: i.required_count, shape: i.shape, colorTemp: i.color_temp, notes: i.notes
+}));
+
+const stockMap = Object.fromEntries(
+  (dbStock || []).map(s => [`${s.type}-${s.shape || ""}`, s.current_count])
+);
+---
+
+<Layout title="Bytt & Vedlikehald">
+  <main class="max-w-md mx-auto px-6 pt-8 pb-32">
+    
+    <header class="mb-8">
+      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Bytt & Vedlikehald</h1>
+      <p class="text-slate-500 text-sm italic">Oversikt over alt utstyr i heimen.</p>
+    </header>
+
+    <details class="group mb-10 bg-slate-100 rounded-[2rem] overflow-hidden border-2 border-transparent open:border-slate-200 transition-all">
+      <summary class="list-none p-6 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <div class="bg-slate-900 text-white p-2 rounded-xl group-open:rotate-45 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          </div>
+          <span class="font-black uppercase tracking-widest text-xs text-slate-900">Registrer ny lampe/utstyr</span>
+        </div>
+      </summary>
+      
+      <div class="px-6 pb-8">
+        <form method="POST" class="space-y-4">
+  <input type="hidden" name="action" value="create" />
+  
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 ml-1">Namn på lampe / utstyr</label>
+    <input type="text" name="name" placeholder="t.eks. Taklampe stue" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" />
+  </div>
+  
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 ml-1">Kategori</label>
+      <select name="category" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none">
+        <option value="bulb">Lyspære</option>
+        <option value="battery">Batteridrive</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 ml-1">Sokkel / Batteri</label>
+      <input type="text" name="type" placeholder="E27, AAA..." required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none" />
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1 ml-1">Pæreform (Shape)</label>
+      <select name="shape" class="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none">
+        <option value="">Standard</option>
+        <option value="Candle">Krone (Candle)</option>
+        <option value="Globe">Globe</option>
+        <option value="Spot">Spot</option>
+        <option value="Edison">Edison</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1 ml-1">Lysfarge</label>
+      <input type="text" name="colorTemp" placeholder="2700K / Varm" class="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none" />
+    </div>
+    <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1 ml-1">Dimbar?</label>
+    <select name="dimmable" class="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none">
+      <option value="false">Nei (Standard)</option>
+      <option value="true">Ja, må kunne dimmast</option>
+    </select>
+  </div>
+  
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1 ml-1">Batteritype</label>
+    <select name="rechargeable" class="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none">
+      <option value="false">Utskiftbare batteri</option>
+      <option value="true">Oppladbar (fast batt.)</option>
+    </select>
+  </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 ml-1">Rom / Plassering</label>
+      <input type="text" name="location" placeholder="Bod, Kjøkken..." class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none" />
+    </div>
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 ml-1">Antall pærer</label>
+      <input type="number" name="requiredCount" value="1" min="1" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none" />
+    </div>
+  </div>
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 ml-1">Viktige merknader</label>
+    <textarea name="notes" placeholder="Treng lang stige, unbrako 4mm..." class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none h-24 text-sm"></textarea>
+  </div>
+  
+  <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">
+    REGISTRER EINING
+  </button>
+</form>
+      </div>
+    </details>
+
+    <section class="space-y-4">
+      <div class="flex items-center justify-between px-2">
+        <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Registrert utstyr</h2>
+        <span class="text-[10px] font-bold text-slate-400">{items.length} EININGAR</span>
+      </div>
+
+      <div class="grid gap-4">
+        {items.map(item => (
+          <InventoryCard 
+            {...item} 
+            inStockCount={stockMap[`${item.type}-${item.shape || ""}`] || 0} 
+          />
+        ))}
+      </div>
+    </section>
+
+  </main>
+</Layout>
