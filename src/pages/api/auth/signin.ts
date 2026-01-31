@@ -18,25 +18,28 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   });
 
   if (error) {
+    console.error("Login error:", error);
     return redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
   if (data.session) {
+    console.log("✅ Login successful, setting cookies");
     const isProduction = import.meta.env.PROD;
     cookies.set("sb-access-token", data.session.access_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction,
-      httpOnly: true 
+      secure: isProduction
     });
     cookies.set("sb-refresh-token", data.session.refresh_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction,
-      httpOnly: true 
+      secure: isProduction
     });
+    console.log("✅ Cookies set, redirecting to /");
     return redirect("/");
   }
+
+  console.error("❌ No session returned from Supabase");
 
   return redirect("/login");
 };

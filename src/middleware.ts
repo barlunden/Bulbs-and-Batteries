@@ -14,7 +14,14 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
   const accessToken = cookies.get("sb-access-token")?.value;
   const refreshToken = cookies.get("sb-refresh-token")?.value;
 
+  console.log("🔍 Middleware - checking auth:", { 
+    hasAccessToken: !!accessToken, 
+    hasRefreshToken: !!refreshToken,
+    path: url.pathname 
+  });
+
   if (!accessToken || !refreshToken) {
+    console.log("❌ No tokens found, redirecting to /login");
     return redirect("/login");
   }
 

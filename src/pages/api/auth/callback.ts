@@ -27,14 +27,12 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
     cookies.set("sb-access-token", data.session.access_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction,
-      httpOnly: true 
+      secure: isProduction
     });
     cookies.set("sb-refresh-token", data.session.refresh_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction,
-      httpOnly: true 
+      secure: isProduction
     });
     return redirect("/");
   }
