@@ -13,6 +13,7 @@
     "@astrojs/node": "^9.5.2",
     "@supabase/supabase-js": "^2.93.2",
     "@tailwindcss/vite": "^4.1.18",
-    "astro": "^5.16.16"
+    "astro": "^5.16.16",
+    "tailwindcss": "^4.0.0"
   }
 }
