@@ -1,9 +1,9 @@
 import { defineMiddleware } from "astro:middleware";
-import { supabase } from "./lib/supabase";
+import { supabase, createAuthenticatedClient } from "./lib/supabase";
 
 export const onRequest = defineMiddleware(async ({ cookies, url, redirect, locals }, next) => {
   // 1. Definer opne stiar
-  const publicPaths = ["/login", "/api/auth/signin", "/api/auth/callback"];
+  const publicPaths = ["/login", "/api/auth/signin", "/api/auth/callback", "/vel-hus"];
   const isPublicPath = publicPaths.some(path => url.pathname.startsWith(path));
 
   if (isPublicPath) {
@@ -35,12 +35,29 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
   // 4. Sjekk om Vidar har vald eit hus
   const activeHouseholdId = cookies.get("active_household_id")?.value;
   
-  // Viss han er logga inn, men ikkje har vald hus (og ikkje er på veg til å velje eitt)
-  if (!activeHouseholdId && url.pathname !== "/vel-hus") {
+  // Viss han er logga inn, men ikkje har vald hus, send til /vel-hus
+  if (!activeHouseholdId) {
     return redirect("/vel-hus");
   }
 
-  locals.householdId = activeHouseholdId || null;
+  // 5. Valider at brukaren faktisk har tilgang til det valde huset (SIKKERHEIT)
+  // Bruk autentisert klient for å unngå RLS-blokkering
+  const authedSupabase = createAuthenticatedClient(accessToken);
+  const { data: membership, error: membershipError } = await authedSupabase
+    .from("household_members")
+    .select("household_id")
+    .eq("user_id", data.user.id)
+    .eq("household_id", activeHouseholdId)
+    .single();
+
+  if (membershipError || !membership) {
+    // Brukaren prøvde å få tilgang til eit hus dei ikkje er medlem av
+    console.error("Medlemskapvalidering feila:", membershipError);
+    cookies.delete("active_household_id", { path: "/" });
+    return redirect("/vel-hus");
+  }
+
+  locals.householdId = activeHouseholdId;
 
   return next();
 });

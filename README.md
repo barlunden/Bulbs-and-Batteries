@@ -1,43 +1,28 @@
-# Astro Starter Kit: Minimal
+# 🛠️ Vidar-Logg
+**Den digitale hovudnøkkelen for moderne vaktmeistrar.**
 
-```sh
-npm create astro@latest -- --template minimal
-```
+Vidar-Logg er eit vedlikehaldssystem skreddarsydd for personar som administrerer utstyr og lager over fleire lokasjonar – frå skular og næringsbygg til private heim. Systemet gjer det enkelt å loggføre bytte av lyspærer, batteri og anna forbruksmateriell med full historikk.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+---
 
-## 🚀 Project Structure
+## ✨ Hovudfunksjonar
+- **Organisasjonsstyring:** Byte saumlaust mellom ulike bygg (t.eks. "Pærebråten skule" og "Lampevegen 20").
+- **Smart Lager:** Automatisk fråtrekk frå beholdning ved bytte av deler.
+- **Detaljert Enhetslogg:** Spesifikasjonar for kvar lampe (sokkel, form, Kelvin, dimbarheit).
+- **Vaktmeister-notat:** Lokasjonsbaserte hugselappar som fylgjer bygget, ikkje personen.
+- **Historikk:** Sjå nøyaktig kor mange dagar det er sidan sist vedlikehald for å avdekke feilvarer.
 
-Inside of your Astro project, you'll see the following folders and files:
+## 🚀 Teknologi
+Prosjektet er bygd med ein moderne "tech stack" for fart og tryggleik:
+- **Framework:** [Astro](https://astro.build/) (Server-side rendering for optimal fart)
+- **Database & Auth:** [Supabase](https://supabase.com/) (PostgreSQL med Row Level Security)
+- **Språk:** [TypeScript](https://www.typescriptlang.org/) (Type-sikkerheit gjennom heile appen)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) (Responsivt og moderne design)
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+## 🛠️ Installasjon
+1. Klone repoet: `git clone https://github.com/brukarnamn/vidar-logg.git`
+2. Installer avhengigheiter: `npm install`
+3. Set opp `.env` med dine Supabase-nøklar:
+   ```text
+   PUBLIC_SUPABASE_URL=din_url
+   PUBLIC_SUPABASE_ANON_KEY=din_nøkkel

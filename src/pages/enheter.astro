@@ -2,55 +2,49 @@
 export const prerender = false;
 import Layout from "../layouts/Layout.astro";
 import InventoryCard from "../components/InventoryCard.astro";
-import { supabase } from "../lib/supabase";
+import { supabase, createAuthenticatedClient } from "../lib/supabase";
 import type { InventoryItem, StockItem } from "../types/inventory";
 
-// 1. AUTH SJEKK I src/middleware.ts
+const { householdId } = Astro.locals;
 
-// 2. ACTION HÅNDTERING
+// Lag ein autentisert Supabase-klient for denne requesten
+const accessToken = Astro.cookies.get("sb-access-token")?.value;
+const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : supabase;
+
+// 1. ACTION HÅNDTERING
 if (Astro.request.method === "POST") {
   try {
     const data = await Astro.request.formData();
     const action = data.get("action");
 
-    // BYTT PÆRE / BATTERI (Trekk frå lager)
-    // Finn denne blokka i src/pages/enheter.astro:
-if (action === "replace_item") {
-  const type = data.get("itemType")?.toString();
-  const shape = data.get("itemShape")?.toString() || ""; // Kan vere tom streng
-  const count = Number(data.get("count") || 1);
+    if (action === "replace_item") {
+      const type = data.get("itemType")?.toString();
+      const shape = data.get("itemShape")?.toString() || "";
+      const count = Number(data.get("count") || 1);
 
-  // REPARASJON: Vi må sjekke om vi skal søke med eller utan shape
-  let query = supabase
-    .from("stock")
-    .select("id, current_count")
-    .eq("type", type);
+      let query = authedSupabase
+        .from("stock")
+        .select("id, current_count")
+        .eq("household_id", householdId) // SIKRING: Berre trekk frå i rett hus!
+        .eq("type", type);
 
-  // Viss shape finst, legg vi det til i søket, 
-  // viss ikkje søker vi etter der shape er tom eller null
-  if (shape && shape !== "null" && shape !== "") {
-    query = query.eq("shape", shape);
-  } else {
-    // Dette er trikset for batteri:
-    query = query.or('shape.is.null,shape.eq.""');
-  }
+      if (shape && shape !== "null" && shape !== "") {
+        query = query.eq("shape", shape);
+      } else {
+        query = query.or('shape.is.null,shape.eq.""');
+      }
 
-  const { data: stock, error: fetchError } = await query.single();
+      const { data: stock } = await query.single();
 
-  if (stock) {
-    const { error: updateError } = await supabase.from("stock")
-      .update({ current_count: Math.max(0, (stock.current_count || 0) - count) })
-      .eq("id", stock.id);
-      
-    if (updateError) console.error("Update error:", updateError.message);
-  } else {
-    console.error("Fann ikkje varen på lager:", type, shape);
-  }
-}
+      if (stock) {
+        await authedSupabase.from("stock")
+          .update({ current_count: Math.max(0, (stock.current_count || 0) - count) })
+          .eq("id", stock.id);
+      }
+    }
 
-    // REGISTRER NY EINING (Lampe/Utstyr)
     else if (action === "create") {
-      await supabase.from("items").insert([{
+      await authedSupabase.from("items").insert([{
         name: data.get("name"),
         category: data.get("category"),
         type: data.get("type")?.toString().toUpperCase(),
@@ -59,25 +53,44 @@ if (action === "replace_item") {
         shape: data.get("shape"),
         color_temp: data.get("colorTemp"),
         notes: data.get("notes"),
+        household_id: householdId, // Jorda ved oppretting
       }]);
     }
 
-    // SLETT EINING
     else if (action === "delete") {
-      await supabase.from("items").delete().eq("id", data.get("itemId"));
+      // SIKRING: Sjekk household_id før sletting så Vidar ikkje slettar naboen sine lamper
+      await authedSupabase.from("items")
+        .delete()
+        .eq("id", data.get("itemId"))
+        .eq("household_id", householdId);
     }
   } catch (error: any) {
     console.error("Enhets-feil:", error.message);
   }
 }
 
-// 3. DATA QUERY
-const { data: dbItems } = await supabase.from("items").select("*").order("location", { ascending: true });
-const { data: dbStock } = await supabase.from("stock").select("*");
+// 2. DATA QUERY - Her låser vi visninga til rett bygg
+const { data: dbItems } = await authedSupabase
+  .from("items")
+  .select("*")
+  .eq("household_id", householdId) // DENNE MANGLA! No forsvinn Oldemors stålampe frå feil hus.
+  .order("location", { ascending: true });
+
+const { data: dbStock } = await authedSupabase
+  .from("stock")
+  .select("*")
+  .eq("household_id", householdId); // Berre sjekk lagerstatus for dette huset
 
 const items: InventoryItem[] = (dbItems || []).map(i => ({
-  id: i.id, name: i.name, category: i.category, type: i.type, location: i.location,
-  requiredCount: i.required_count, shape: i.shape, colorTemp: i.color_temp, notes: i.notes
+  id: i.id, 
+  name: i.name, 
+  category: i.category, 
+  type: i.type, 
+  location: i.location,
+  requiredCount: i.required_count, 
+  shape: i.shape, 
+  colorTemp: i.color_temp, 
+  notes: i.notes
 }));
 
 const stockMap = Object.fromEntries(

@@ -3,21 +3,11 @@ export const prerender = false;
 import Layout from "../layouts/Layout.astro";
 import { supabase } from "../lib/supabase";
 
-// 1. Sjekk at vi har ein brukar
-const accessToken = Astro.cookies.get("sb-access-token");
-const refreshToken = Astro.cookies.get("sb-refresh-token");
-
-if (!accessToken || !refreshToken) return Astro.redirect("/login");
-
-const { data: authData } = await supabase.auth.setSession({
-  access_token: accessToken.value,
-  refresh_token: refreshToken.value,
-});
-
-const user = authData.user;
+// Middleware har allereie sjekka auth, så vi kan bruke Astro.locals direkte
+const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
 
-// 2. Håndter val eller oppretting av hus
+// 1. Håndter val eller oppretting av hus
 if (Astro.request.method === "POST") {
   const data = await Astro.request.formData();
   const action = data.get("action");
@@ -55,7 +45,7 @@ if (Astro.request.method === "POST") {
   }
 }
 
-// 3. Hent medlemskap (kva hus har Vidar tilgang til?)
+// 2. Hent medlemskap (kva hus har Vidar tilgang til?)
 const { data: memberships } = await supabase
   .from("household_members")
   .select(`

@@ -30,28 +30,25 @@ const sent = url.searchParams.get("sent") === "true";
       ) : (
         <form action="/api/auth/signin" method="POST" class="space-y-6">
           <div class="space-y-4">
-  <div>
-    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">E-post</label>
-    <input type="email" name="email" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" />
-  </div>
-  <div>
-    <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">Passord</label>
-    <input type="password" name="password" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" />
-  </div>
-  <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl">
-    LOGG INN
-  </button>
-</div>
+            <div>
+              <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">E-post</label>
+              <input type="email" name="email" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">Passord</label>
+              <input type="password" name="password" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" />
+            </div>
+          </div>
           
           <button 
             type="submit" 
-            class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 hover:shadow-lg hover:shadow-indigo-200 transition-all active:scale-[0.98]"
+            class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-200 transition-all active:scale-[0.98]"
           >
-            SEND MAGIC LINK
+            LOGG INN
           </button>
 
           <p class="text-[10px] text-center text-slate-400 uppercase font-bold tracking-tighter">
-            Ingen passord trengs • Trygt og enkelt
+            Sikker innlogging via Supabase Auth
           </p>
         </form>
       )}

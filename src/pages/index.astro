@@ -1,11 +1,15 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { supabase } from "../lib/supabase";
+import { supabase, createAuthenticatedClient } from "../lib/supabase";
 
 const { householdId, user } = Astro.locals;
 
+// Lag ein autentisert Supabase-klient for denne requesten
+const accessToken = Astro.cookies.get("sb-access-token")?.value;
+const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : supabase;
+
 // 1. Hent både namn og det globale notatet for det aktive huset
-const { data: household } = await supabase
+const { data: household } = await authedSupabase
   .from("households")
   .select("name, global_note")
   .eq("id", householdId)
