@@ -1,0 +1,351 @@
+---
+export const prerender = false;
+import Layout from "../layouts/Layout.astro";
+import { supabase, createAuthenticatedClient } from "../lib/supabase";
+
+const { householdId, user } = Astro.locals;
+
+const accessToken = Astro.cookies.get("sb-access-token")?.value;
+const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : supabase;
+
+let successMessage: string | null = null;
+let errorMessage: string | null = null;
+
+// Håndter POST-requests
+if (Astro.request.method === "POST") {
+  const data = await Astro.request.formData();
+  const action = data.get("action");
+  
+  console.log("📨 POST request mottatt!");
+  console.log("  Action:", action);
+  console.log("  Form data:", Object.fromEntries(data));
+
+  if (action === "make_me_admin") {
+    console.log("🔧 Prøver å gjøre bruker til admin...");
+    console.log("  Household ID:", householdId);
+    console.log("  User ID:", user?.id);
+    
+    // Bruk global supabase-klient for å omgå RLS når vi legger til første admin
+    const { data: updateData, error: updateError } = await supabase
+      .from("household_members")
+      .update({ role: "admin" })
+      .eq("household_id", householdId)
+      .eq("user_id", user?.id)
+      .select();
+
+    console.log("  Update result:", { updateData, updateError });
+
+    // Hvis det ikke finnes noen rad å oppdatere, legg til ny
+    if (!updateData || updateData.length === 0) {
+      console.log("  Ingen rad å oppdatere, prøver å legge til ny...");
+      const { data: insertData, error: insertError } = await supabase
+        .from("household_members")
+        .insert([{
+          household_id: householdId,
+          user_id: user?.id,
+          role: "admin"
+        }])
+        .select();
+
+      console.log("  Insert result:", { insertData, insertError });
+
+      if (insertError) {
+        errorMessage = `Kunne ikke legge deg til: ${insertError.message}`;
+      } else {
+        successMessage = "Du er nå administrator for denne husstanden!";
+        return Astro.redirect("/husstand");
+      }
+    } else if (updateError) {
+      errorMessage = `Kunne ikke oppdatere rolle: ${updateError.message}`;
+    } else {
+      successMessage = "Du er nå administrator for denne husstanden!";
+      return Astro.redirect("/husstand");
+    }
+  }
+
+  if (action === "invite") {
+    const email = data.get("email")?.toString().toLowerCase().trim();
+    const role = data.get("role")?.toString() || "member";
+
+    if (email) {
+      // Finn bruker-ID basert på e-post fra auth.users via RPC eller profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("email", email)
+        .single();
+
+      if (!profile) {
+        errorMessage = `Fant ingen bruker med e-post ${email}. Personen må registrere seg først.`;
+      } else {
+        // Sjekk om bruker allerede er medlem
+        const { data: existing } = await supabase
+          .from("household_members")
+          .select("id")
+          .eq("household_id", householdId)
+          .eq("user_id", profile.id)
+          .single();
+
+        if (existing) {
+          errorMessage = "Denne brukeren er allerede medlem av husstanden";
+        } else {
+          // Legg til som medlem
+          const { error } = await supabase
+            .from("household_members")
+            .insert([{
+              household_id: householdId,
+              user_id: profile.id,
+              role: role
+            }]);
+
+          if (error) {
+            errorMessage = `Kunne ikke legge til medlem: ${error.message}`;
+          } else {
+            successMessage = `${email} er nå lagt til i husstanden!`;
+          }
+        }
+      }
+    }
+  }
+
+  if (action === "remove") {
+    const memberId = data.get("memberId")?.toString();
+    
+    if (memberId) {
+      const { error } = await authedSupabase
+        .from("household_members")
+        .delete()
+        .eq("id", memberId)
+        .eq("household_id", householdId); // Sikkerhet: kun fjern fra eget hus
+
+      if (error) {
+        errorMessage = `Kunne ikke fjerne medlem: ${error.message}`;
+      } else {
+        successMessage = "Medlem fjernet fra husstanden";
+      }
+    }
+  }
+
+  if (action === "change_role") {
+    const memberId = data.get("memberId")?.toString();
+    const newRole = data.get("newRole")?.toString();
+
+    if (memberId && newRole) {
+      const { error } = await authedSupabase
+        .from("household_members")
+        .update({ role: newRole })
+        .eq("id", memberId)
+        .eq("household_id", householdId);
+
+      if (error) {
+        errorMessage = `Kunne ikke endre rolle: ${error.message}`;
+      } else {
+        successMessage = "Rolle oppdatert";
+      }
+    }
+  }
+}
+
+// Hent husstandsinfo
+const { data: household } = await supabase
+  .from("households")
+  .select("name")
+  .eq("id", householdId)
+  .single();
+
+// Hent alle medlemmer
+const { data: members, error: membersError } = await supabase
+  .from("household_members")
+  .select("*")
+  .eq("household_id", householdId);
+
+// Hent profiler for alle medlemmer
+let membersWithProfiles = [];
+if (members && members.length > 0) {
+  const userIds = members.map(m => m.user_id);
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, email")
+    .in("id", userIds);
+  
+  // Kombiner members med profiles
+  membersWithProfiles = members.map(member => ({
+    ...member,
+    profiles: profiles?.find(p => p.id === member.user_id)
+  }));
+}
+
+// Debug: Logg ut medlemmer og roller
+console.log("🔍 Debug husstand.astro:");
+console.log("  Alle medlemmer:", membersWithProfiles);
+console.log("  Members error:", membersError);
+console.log("  Innlogget bruker ID:", user?.id);
+
+// Sjekk om nåværende bruker er admin
+const currentUserMember = membersWithProfiles?.find(m => m.user_id === user?.id);
+console.log("  Ditt medlemskap:", currentUserMember);
+console.log("  Er du admin?", currentUserMember?.role === "admin");
+
+const isAdmin = currentUserMember?.role === "admin";
+---
+
+<Layout title="Husstand">
+  <main class="max-w-md mx-auto px-6 pt-8 pb-32">
+    <header class="mb-8">
+      <h1 class="text-3xl font-black text-slate-900 tracking-tight">
+        Husstand: {household?.name}
+      </h1>
+      <p class="text-slate-500 text-sm italic">
+        Administrer hvem som har tilgang til dette huset
+      </p>
+      {(!currentUserMember || currentUserMember.role !== "admin") && (
+        <div class="mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+          <p class="font-bold text-red-900 mb-2">⚠️ Du er ikke admin av denne husstanden!</p>
+          <p class="text-sm text-red-800 mb-3">
+            {!currentUserMember 
+              ? "Du er ikke medlem ennå. Klikk under for å bli admin."
+              : `Din rolle er: ${currentUserMember.role}. Klikk under for å oppgradere til admin.`
+            }
+          </p>
+          <form method="POST" onsubmit="this.querySelector('button').textContent = 'ARBEIDER...'">
+            <input type="hidden" name="action" value="make_me_admin" />
+            <button type="submit" class="w-full bg-red-600 text-white font-black py-3 rounded-xl hover:bg-red-700 transition-all">
+              GJØR MEG TIL ADMIN AV DENNE HUSSTANDEN
+            </button>
+          </form>
+        </div>
+      )}
+    </header>
+
+    {successMessage && (
+      <div class="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-2xl mb-6 animate-in fade-in">
+        <div class="flex items-center gap-2">
+          <span class="text-emerald-600 text-xl">✓</span>
+          <p class="text-emerald-800 font-bold text-sm">{successMessage}</p>
+        </div>
+      </div>
+    )}
+
+    {errorMessage && (
+      <div class="bg-red-50 border-2 border-red-200 p-4 rounded-2xl mb-6 animate-in fade-in">
+        <div class="flex items-center gap-2">
+          <span class="text-red-600 text-xl">⚠️</span>
+          <p class="text-red-800 font-bold text-sm">{errorMessage}</p>
+        </div>
+      </div>
+    )}
+
+    {isAdmin && (
+      <section class="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-[2rem] shadow-xl mb-10">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="bg-white/30 p-2 rounded-xl text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h2 class="text-white font-black uppercase tracking-widest text-xs">
+            👥 Legg til nytt medlem
+          </h2>
+        </div>
+
+        <form method="POST" class="space-y-4">
+          <input type="hidden" name="action" value="invite" />
+          
+          <div>
+            <label class="block text-[9px] font-black uppercase text-indigo-100 mb-1 ml-1">E-postadresse</label>
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="navn@eksempel.no"
+              class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
+            />
+            <p class="text-xs text-indigo-100 mt-2 ml-1 italic">Personen må ha registrert seg i appen først</p>
+          </div>
+
+          <div>
+            <label class="block text-[9px] font-black uppercase text-indigo-100 mb-1 ml-1">Rolle</label>
+            <select name="role" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
+              <option value="member">Medlem (kan se og endre)</option>
+              <option value="admin">Administrator (kan også invitere)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="w-full bg-white text-indigo-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
+            LEGG TIL MEDLEM
+          </button>
+        </form>
+      </section>
+    )}
+
+    <section>
+      <div class="flex items-center justify-between mb-4 px-2">
+        <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Medlemmer ({members?.length || 0})
+        </h2>
+      </div>
+
+      <div class="space-y-3">
+        {membersWithProfiles && membersWithProfiles.length > 0 ? (
+          membersWithProfiles.map((member: any) => (
+            <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="font-black text-slate-900 text-base">
+                      {member.profiles?.email || "Ukjent bruker"}
+                    </h3>
+                    {member.user_id === user?.id && (
+                      <span class="text-[8px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded uppercase">Du</span>
+                    )}
+                  </div>
+                  <p class="text-[10px] text-slate-600 mt-1">
+                    {member.role === "admin" ? "⭐ Administrator" : "👤 Medlem"}
+                  </p>
+                </div>
+
+                {isAdmin && member.user_id !== user?.id && (
+                  <div class="flex flex-col gap-2">
+                    <form method="POST" class="inline">
+                      <input type="hidden" name="action" value="change_role" />
+                      <input type="hidden" name="memberId" value={member.id} />
+                      <input type="hidden" name="newRole" value={member.role === "admin" ? "member" : "admin"} />
+                      <button 
+                        type="submit"
+                        class="text-[9px] font-black bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-xl transition-all"
+                      >
+                        {member.role === "admin" ? "↓ Gjør til medlem" : "↑ Gjør til admin"}
+                      </button>
+                    </form>
+
+                    <form method="POST" class="inline">
+                      <input type="hidden" name="action" value="remove" />
+                      <input type="hidden" name="memberId" value={member.id} />
+                      <button 
+                        type="submit"
+                        onclick="return confirm('Er du sikker på at du vil fjerne dette medlemmet?')"
+                        class="text-[9px] font-black bg-red-100 hover:bg-red-200 text-red-600 px-3 py-2 rounded-xl transition-all"
+                      >
+                        🗑️ Fjern
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div class="bg-white border-2 border-dashed border-slate-200 rounded-[2rem] p-8 text-center">
+            <p class="text-slate-400 font-bold text-sm">Ingen medlemmer ennå</p>
+          </div>
+        )}
+      </div>
+    </section>
+
+    {!isAdmin && (
+      <div class="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+        <p class="text-xs text-amber-800 italic">
+          💡 Kun administratorer kan invitere nye medlemmer. Kontakt en administrator hvis du trenger hjelp.
+        </p>
+      </div>
+    )}
+  </main>
+</Layout>

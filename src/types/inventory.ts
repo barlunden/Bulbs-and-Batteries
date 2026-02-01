@@ -25,4 +25,6 @@ export interface StockItem {
   category: 'battery' | 'bulb';
   currentCount: number;
   minThreshold: number;
+  dimmable?: boolean;
+  rechargeable?: boolean;
 }

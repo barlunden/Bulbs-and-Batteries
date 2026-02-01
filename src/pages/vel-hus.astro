@@ -1,13 +1,16 @@
 ---
 export const prerender = false;
 import Layout from "../layouts/Layout.astro";
-import { supabase } from "../lib/supabase";
+import { supabase, createAuthenticatedClient } from "../lib/supabase";
 
-// Middleware har allereie sjekka auth, så vi kan bruke Astro.locals direkte
+// Middleware har allerede sjekket auth, så vi kan bruke Astro.locals direkte
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
 
-// 1. Håndter val eller oppretting av hus
+const accessToken = Astro.cookies.get("sb-access-token")?.value;
+const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : supabase;
+
+// 1. Håndter valg eller oppretting av hus
 if (Astro.request.method === "POST") {
   const data = await Astro.request.formData();
   const action = data.get("action");
@@ -24,15 +27,15 @@ if (Astro.request.method === "POST") {
     const name = data.get("name")?.toString();
     if (name) {
       // Lag huset
-      const { data: house, error: houseErr } = await supabase
+      const { data: house, error: houseErr } = await authedSupabase
         .from("households")
         .insert([{ name }])
         .select()
         .single();
 
       if (house) {
-        // Gjer Vidar til Admin i det nye huset
-        await supabase.from("household_members").insert([{
+        // Gjør brukeren til Admin i det nye huset
+        await authedSupabase.from("household_members").insert([{
           household_id: house.id,
           user_id: user.id,
           role: "admin"
@@ -45,7 +48,7 @@ if (Astro.request.method === "POST") {
   }
 }
 
-// 2. Hent medlemskap (kva hus har Vidar tilgang til?)
+// 2. Hent medlemskap (hvilke hus har Vidar tilgang til?)
 const { data: memberships } = await supabase
   .from("household_members")
   .select(`
@@ -56,15 +59,15 @@ const { data: memberships } = await supabase
   .eq("user_id", user.id);
 ---
 
-<Layout title="Vel arbeidsstad">
+<Layout title="Velg arbeidsplass">
   <main class="max-w-md mx-auto px-6 pt-12 pb-24">
     <header class="mb-10 text-center">
-      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Kvar skal du jobbe?</h1>
-      <p class="text-slate-500 mt-2 italic text-sm text-balance">Vel ein eksisterande husstand eller opprett ein ny organisasjon.</p>
+      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Hvor skal du jobbe?</h1>
+      <p class="text-slate-500 mt-2 italic text-sm text-balance">Velg en eksisterende husstand eller opprett en ny organisasjon.</p>
     </header>
 
     <section class="space-y-4 mb-12">
-      <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-4">Dine tilgangar</h2>
+      <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-4">Dine tilganger</h2>
       
       {memberships && memberships.length > 0 ? (
         memberships.map((m: any) => (
@@ -86,7 +89,7 @@ const { data: memberships } = await supabase
         ))
       ) : (
         <div class="p-8 border-2 border-dashed border-slate-200 rounded-[2rem] text-center italic text-slate-400 text-sm">
-          Du er ikkje medlem av nokon husstand enno.
+          Du er ikke medlem av noen husstand ennå.
         </div>
       )}
     </section>
