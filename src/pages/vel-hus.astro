@@ -34,14 +34,24 @@ if (Astro.request.method === "POST") {
         .select()
         .single();
 
+      if (houseErr) {
+        console.error("❌ Feil ved oppretting av husstand:", houseErr);
+        return new Response(`Feil ved oppretting av husstand: ${houseErr.message}`, { status: 500 });
+      }
+
       if (house) {
         // Gjør brukeren til Admin i det nye huset
         // Bruk global supabase-klient for å omgå RLS (første admin-insert)
-        await supabase.from("household_members").insert([{
+        const { error: memberErr } = await supabase.from("household_members").insert([{
           household_id: house.id,
           user_id: user.id,
           role: "admin"
         }]);
+
+        if (memberErr) {
+          console.error("❌ Feil ved oppretting av admin-medlem:", memberErr);
+          return new Response(`Feil ved oppretting av admin-medlem: ${memberErr.message}`, { status: 500 });
+        }
 
         Astro.cookies.set("active_household_id", house.id, { path: "/", sameSite: "lax" });
         return Astro.redirect("/");
