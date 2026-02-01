@@ -59,8 +59,8 @@ if (Astro.request.method === "POST") {
   }
 }
 
-// 2. Hent medlemskap (hvilke hus har Vidar tilgang til?)
-const { data: memberships } = await supabase
+// 2. Hent medlemskap (hvilke hus har brukaren tilgang til?)
+const { data: memberships, error: membershipsError } = await authedSupabase
   .from("household_members")
   .select(`
     role,
@@ -68,6 +68,10 @@ const { data: memberships } = await supabase
     households ( id, name )
   `)
   .eq("user_id", user.id);
+
+if (membershipsError) {
+  console.error("❌ Feil ved henting av medlemskap:", membershipsError);
+}
 ---
 
 <Layout title="Velg arbeidsplass">
