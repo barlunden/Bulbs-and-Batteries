@@ -27,8 +27,8 @@ if (Astro.request.method === "POST") {
     const name = data.get("name")?.toString();
     const type = data.get("type")?.toString() || "home";
     if (name) {
-      // Lag huset (bruk authedSupabase for RLS)
-      const { data: house, error: houseErr } = await authedSupabase
+      // Lag huset (bruk service role for å omgå RLS)
+      const { data: house, error: houseErr } = await supabase
         .from("households")
         .insert([{ name, type }])
         .select()
