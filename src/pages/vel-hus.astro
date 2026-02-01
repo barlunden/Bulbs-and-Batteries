@@ -25,11 +25,12 @@ if (Astro.request.method === "POST") {
 
   if (action === "create") {
     const name = data.get("name")?.toString();
+    const type = data.get("type")?.toString() || "home";
     if (name) {
       // Lag huset
       const { data: house, error: houseErr } = await authedSupabase
         .from("households")
-        .insert([{ name }])
+        .insert([{ name, type }])
         .select()
         .single();
 
@@ -112,6 +113,39 @@ const { data: memberships } = await supabase
             class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="Lampevegen 20..."
           />
+        </div>
+        
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-2 ml-1">Type</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="relative">
+              <input 
+                type="radio" 
+                name="type" 
+                value="home" 
+                checked 
+                class="peer sr-only"
+              />
+              <div class="p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer peer-checked:border-indigo-500 peer-checked:bg-indigo-900/30 transition-all">
+                <div class="text-2xl mb-1">🏠</div>
+                <div class="text-xs font-bold">Husstand</div>
+                <div class="text-[9px] text-slate-500">Enkel modus</div>
+              </div>
+            </label>
+            <label class="relative">
+              <input 
+                type="radio" 
+                name="type" 
+                value="facility" 
+                class="peer sr-only"
+              />
+              <div class="p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer peer-checked:border-indigo-500 peer-checked:bg-indigo-900/30 transition-all">
+                <div class="text-2xl mb-1">🏢</div>
+                <div class="text-xs font-bold">Vaktmeister</div>
+                <div class="text-[9px] text-slate-500">Avansert modus</div>
+              </div>
+            </label>
+          </div>
         </div>
         <button type="submit" class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-widest text-xs">
           Opprett og bli sjef

@@ -14,20 +14,30 @@ const householdId = Astro.locals.householdId;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="generator" content={Astro.generator} />
     <title>{title} | Bulbs & Batteries</title>
   </head>
   <body class="bg-slate-50 pb-32 font-sans antialiased text-slate-900">
     
-    <header class="max-w-md mx-auto px-6 py-8 flex justify-between items-start">
+    <header class="max-w-md mx-auto px-6 py-8 flex justify-between items-start relative">
+      <!-- Dekorativ lyseffekt i bakgrunnen -->
+      <div class="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-amber-300/5 to-transparent rounded-[3rem] blur-2xl -z-10 animate-pulse" style="animation-duration: 3s;"></div>
+      
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black italic shadow-xl shadow-indigo-100 ring-4 ring-white">
-          B&B
+        <!-- Lysende logo med glow-effekt -->
+        <div class="relative group">
+          <div class="absolute inset-0 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl blur-xl opacity-60 group-hover:opacity-100 transition-opacity"></div>
+          <div class="relative w-12 h-12 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-2xl shadow-yellow-500/50 ring-4 ring-white transform hover:scale-110 transition-transform">
+            💡
+          </div>
         </div>
+        
         <div class="flex flex-col">
-          <span class="font-black uppercase tracking-tighter text-base leading-none">Bulbs & Batteries</span>
-          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1">Vedlikehaldssystem</span>
+          <span class="font-black uppercase tracking-tighter text-base leading-none bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+            Bulbs & Batteries
+          </span>
+          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1">✨ Rett pære til rett plass</span>
         </div>
       </div>
 
@@ -35,7 +45,7 @@ const householdId = Astro.locals.householdId;
         <div class="flex flex-col items-end gap-2">
           <div class="flex flex-col items-end leading-none">
             <span class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Innlogga</span>
-            <span class="text-[10px] font-bold bg-white px-3 py-1.5 rounded-full border border-slate-100 shadow-sm text-indigo-600">
+            <span class="text-[10px] font-bold bg-white px-3 py-1.5 rounded-full border border-yellow-200 shadow-sm text-yellow-700 ring-2 ring-yellow-100/50">
               {userEmail.split('@')[0]}
             </span>
           </div>

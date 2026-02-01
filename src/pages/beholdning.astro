@@ -11,6 +11,19 @@ const { householdId } = Astro.locals;
 const accessToken = Astro.cookies.get("sb-access-token")?.value;
 const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : supabase;
 
+// Hent husstandstype for å bestemme default modus
+const { data: household } = await authedSupabase
+  .from("households")
+  .select("type")
+  .eq("id", householdId)
+  .single();
+
+const householdType = household?.type || "home";
+
+// Bestem categoryFilter fra URL
+const url = new URL(Astro.request.url);
+const categoryFilter = url.searchParams.get("category") || "all";
+
 // Feilmelding frå POST
 let errorMessage: string | null = null;
 
@@ -119,7 +132,7 @@ if (Astro.request.method === "POST") {
 /// 2. AUTO-GENERERING (Robust versjon)
 const { data: usedItems } = await authedSupabase
   .from("items")
-  .select("type, shape")
+  .select("type, shape, quantity, required_count")
   .eq("household_id", householdId)
   .not("type", "is", null);
 
@@ -154,11 +167,16 @@ if (usedItems && existingStock) {
       const alreadyInBatch = itemsToCreate.some(i => i.type === itemType && i.shape === itemShape);
       
       if (!alreadyInBatch) {
+        // Beregn total mengd basert på quantity (antal like enheter) og required_count (pærer per enhet)
+        const quantity = item.quantity || 1;
+        const requiredCount = item.required_count || 1;
+        const totalNeeded = quantity * requiredCount;
+        
         itemsToCreate.push({
           type: itemType,
           shape: itemShape,
           current_count: 0,
-          min_threshold: 2,
+          min_threshold: totalNeeded, // Sett terskelverdien basert på totalt behov
           category: 'bulb',
           household_id: householdId
         });
@@ -262,6 +280,41 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
       <p class="text-slate-500 text-sm italic">
         Her holder du styr på hva som finnes i skapet.
       </p>
+      
+      <div class="mt-4 flex items-center justify-between">
+        <div class="flex gap-2">
+          <a 
+            href="/beholdning?category=all"
+            class={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              categoryFilter === "all" 
+                ? "bg-slate-900 text-white" 
+                : "bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            📦 Alle
+          </a>
+          <a 
+            href="/beholdning?category=bulb"
+            class={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              categoryFilter === "bulb" 
+                ? "bg-amber-500 text-white" 
+                : "bg-white border-2 border-amber-200 text-amber-700 hover:border-amber-300"
+            }`}
+          >
+            💡 Pærer
+          </a>
+          <a 
+            href="/beholdning?category=battery"
+            class={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              categoryFilter === "battery" 
+                ? "bg-emerald-500 text-white" 
+                : "bg-white border-2 border-emerald-200 text-emerald-700 hover:border-emerald-300"
+            }`}
+          >
+            🔋 Batteri
+          </a>
+        </div>
+      </div>
     </header>
 
     {errorMessage && (
@@ -275,6 +328,7 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
 
     <div class="grid gap-4 mb-10">
       <!-- LYSPÆRER -->
+      {(categoryFilter === "all" || categoryFilter === "bulb") && (
       <section class="bg-gradient-to-br from-amber-400 to-yellow-500 p-6 rounded-[2rem] shadow-xl">
         <div class="flex items-center gap-3 mb-6">
           <div class="bg-white/30 p-2 rounded-xl text-white">
@@ -322,6 +376,21 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
             </div>
           </div>
 
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Watt</label>
+              <input type="number" name="watt" placeholder="60" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+            </div>
+            <div>
+              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Lumen</label>
+              <input type="number" name="lumen" placeholder="800" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+            </div>
+            <div>
+              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Kelvin</label>
+              <input type="text" name="colorTemp" placeholder="2700K" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+            </div>
+          </div>
+
           <label class="flex items-center gap-3 bg-white/50 p-4 rounded-xl cursor-pointer">
             <input type="checkbox" name="dimmable" value="true" class="w-5 h-5 rounded accent-amber-600" />
             <span class="text-amber-900 font-bold text-sm">💡 Dimbar pære</span>
@@ -332,8 +401,10 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
           </button>
         </form>
       </section>
+      )}
 
       <!-- BATTERI -->
+      {(categoryFilter === "all" || categoryFilter === "battery") && (
       <section class="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 rounded-[2rem] shadow-xl">
         <div class="flex items-center gap-3 mb-6">
           <div class="bg-white/30 p-2 rounded-xl text-white">
@@ -381,6 +452,7 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
           </button>
         </form>
       </section>
+      )}
     </div>
 
     <section>
@@ -401,7 +473,9 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
               <p class="text-slate-400 text-xs mt-1">Bruk skjemaet over for å registrere innkjøp</p>
             </div>
           ) : (
-            ["battery", "bulb"].map((cat) => {
+            ["battery", "bulb"]
+              .filter(cat => categoryFilter === "all" || categoryFilter === cat)
+              .map((cat) => {
               const itemsInCategory = stockItems.filter(
                 (i) => i.category === cat,
               );

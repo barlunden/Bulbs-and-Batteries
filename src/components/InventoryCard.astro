@@ -6,7 +6,11 @@ interface Props {
   category: "bulb" | "battery";
   type: string;
   shape?: string;
-  location?: string;
+  location?: string; // Deprecated, bruk building/department/detail
+  building?: string;
+  department?: string;
+  detail?: string;
+  quantity?: number;
   requiredCount: number;
   notes?: string;
   inStockCount: number;
@@ -18,6 +22,7 @@ interface Props {
 
 const { 
   id, name, category, type, shape, location, 
+  building, department, detail, quantity,
   requiredCount, notes, inStockCount, colorTemp,
   dimmable, rechargeable, lastReplaced
 } = Astro.props;
@@ -27,7 +32,14 @@ const isRechargeable = rechargeable === true || rechargeable === "true";
 const isDimmable = dimmable === true || dimmable === "true";
 
 // Sjekk om vi har nok på lager (berre relevant for dingsar som ikkje er oppladbare)
-const isOutOfStock = !isRechargeable && (inStockCount < requiredCount);
+const itemQuantity = quantity || 1;
+const totalRequired = requiredCount * itemQuantity;
+const isOutOfStock = !isRechargeable && (inStockCount < totalRequired);
+
+// Bygg opp lokasjon frå strukturerte felt, eller fall tilbake på gammal location
+const locationDisplay = building || department || detail
+  ? [building, department, detail].filter(Boolean).join(" / ")
+  : location;
 
 // Formater sist byttet-dato
 const formatDate = (dateStr?: string) => {
@@ -45,7 +57,7 @@ const formatDate = (dateStr?: string) => {
 };
 ---
 
-<div class={`group p-6 rounded-[2.5rem] border-2 transition-all duration-300 ${
+<div class={`group relative p-6 rounded-[2.5rem] border-2 transition-all duration-300 ${
   isOutOfStock 
     ? 'border-red-200 bg-red-50/50 shadow-sm' 
     : isRechargeable 
@@ -53,12 +65,18 @@ const formatDate = (dateStr?: string) => {
       : 'border-slate-100 bg-white shadow-sm hover:shadow-md'
 }`}>
   
+  {itemQuantity > 1 && (
+    <div class="absolute top-4 right-4 bg-blue-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-lg">
+      ×{itemQuantity}
+    </div>
+  )}
+  
   <div class="flex justify-between items-start mb-4">
     <div class="space-y-1">
       <div class="flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-slate-300"></span>
         <p class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-          {location || 'Ingen lokasjon sett'}
+          {locationDisplay || 'Ingen lokasjon sett'}
         </p>
       </div>
       <h3 class="text-xl font-black text-slate-900 leading-tight tracking-tight">
@@ -72,7 +90,7 @@ const formatDate = (dateStr?: string) => {
           ? 'bg-red-500 border-red-500 text-white animate-pulse' 
           : 'bg-white border-slate-100 text-slate-600'
       }`}>
-        Lager: {inStockCount}
+        Lager: {inStockCount}/{totalRequired}
       </div>
     )}
   </div>
@@ -128,7 +146,24 @@ const formatDate = (dateStr?: string) => {
     <input type="hidden" name="itemShape" value={shape || ""} />
     <input type="hidden" name="dimmable" value={isDimmable ? "true" : "false"} />
     <input type="hidden" name="rechargeable" value={isRechargeable ? "true" : "false"} />
-    <input type="hidden" name="count" value={isRechargeable ? 0 : requiredCount} />
+    
+    {itemQuantity > 1 && !isRechargeable ? (
+      <div class="mb-3">
+        <label class="block text-[9px] font-black uppercase text-slate-500 mb-2 ml-2">
+          Hvor mange skal byttes? (av {itemQuantity} enheter)
+        </label>
+        <input 
+          type="number" 
+          name="replaceQuantity" 
+          min="1" 
+          max={itemQuantity}
+          value="1"
+          class="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold outline-none focus:border-indigo-400"
+        />
+      </div>
+    ) : (
+      <input type="hidden" name="replaceQuantity" value={isRechargeable ? 0 : 1} />
+    )}
     
     <button 
       type="submit" 
@@ -151,7 +186,7 @@ const formatDate = (dateStr?: string) => {
       ) : (
         <>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-          BYTT {requiredCount > 1 ? `${requiredCount} STK` : 'PÆRE/BATT.'}
+          BYTT {totalRequired > 1 ? `${requiredCount}×${itemQuantity} STK` : 'PÆRE/BATT.'}
         </>
       )}
     </button>

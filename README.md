@@ -7,9 +7,12 @@ Vidar-Logg er eit vedlikehaldssystem skreddarsydd for personar som administrerer
 
 ## ✨ Hovudfunksjonar
 - **Organisasjonsstyring:** Byte saumlaust mellom ulike bygg (t.eks. "Pærebråten skule" og "Lampevegen 20").
-- **Smart Lager:** Automatisk fråtrekk frå beholdning ved bytte av deler.
+- **Fleirbrukar-tilgang:** Del inventar med teamet ditt gjennom e-postinvitasjonar. Rollestyre for admin/medlem.
+- **Skalerbar Registrering:** Registrer "40 klasseromlamper" i eitt skjema med mengdefelt.
+- **Strukturert Lokasjon:** Filtrer utstyr etter bygning/avdeling/detalj (t.d. "Hovedbygg / Fløy B / 2. etasje").
+- **Kraftig Søk & Filter:** Finn raskt "alle E27-lamper i Fløy B" eller søk etter nøkkelord.
+- **Smart Lager:** Automatisk fråtrekk frå beholdning ved bytte av deler, med full historikk.
 - **Detaljert Enhetslogg:** Spesifikasjonar for kvar lampe (sokkel, form, Kelvin, dimbarheit).
-- **Vaktmeister-notat:** Lokasjonsbaserte hugselappar som fylgjer bygget, ikkje personen.
 - **Historikk:** Sjå nøyaktig kor mange dagar det er sidan sist vedlikehald for å avdekke feilvarer.
 
 ## 🚀 Teknologi
@@ -26,3 +29,10 @@ Prosjektet er bygd med ein moderne "tech stack" for fart og tryggleik:
    ```text
    PUBLIC_SUPABASE_URL=din_url
    PUBLIC_SUPABASE_ANON_KEY=din_nøkkel
+   ```
+4. Køyr database-migrasjonar i Supabase Dashboard (SQL Editor):
+   - `supabase_migration_profiles.sql` - Profiltabell for e-postinvitasjonar
+   - `supabase_migration_quantity_location.sql` - Mengdefelt og strukturert lokasjon
+5. Start dev-server: `npm run dev`
+
+Sjå [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detaljar om database-oppsett.

@@ -1,21 +1,23 @@
 // src/types/inventory.ts
-
-// src/types/inventory.ts
 export interface InventoryItem {
   id: string;
   name: string;
   category: 'bulb' | 'battery';
   type: string;
   shape?: string;
-  location?: string;
+  location?: string; // Deprecated - bruk building/department/detail
+  building?: string;
+  department?: string;
+  detail?: string;
   requiredCount: number;
+  quantity: number; // Antall identiske enheter
   notes?: string;
   colorTemp?: string;
   wattage?: number;
   lumens?: number;
   dimmable?: boolean;
   rechargeable?: boolean;
-  lastReplaced?: string; // Datoen kjem som streng frå API-et
+  lastReplaced?: string; // Datoen kommer som streng fra API-et
 }
 
 export interface StockItem {

@@ -15,15 +15,8 @@ let errorMessage: string | null = null;
 if (Astro.request.method === "POST") {
   const data = await Astro.request.formData();
   const action = data.get("action");
-  
-  console.log("📨 POST request mottatt!");
-  console.log("  Action:", action);
-  console.log("  Form data:", Object.fromEntries(data));
 
   if (action === "make_me_admin") {
-    console.log("🔧 Prøver å gjøre bruker til admin...");
-    console.log("  Household ID:", householdId);
-    console.log("  User ID:", user?.id);
     
     // Bruk global supabase-klient for å omgå RLS når vi legger til første admin
     const { data: updateData, error: updateError } = await supabase
@@ -33,11 +26,10 @@ if (Astro.request.method === "POST") {
       .eq("user_id", user?.id)
       .select();
 
-    console.log("  Update result:", { updateData, updateError });
-
-    // Hvis det ikke finnes noen rad å oppdatere, legg til ny
-    if (!updateData || updateData.length === 0) {
-      console.log("  Ingen rad å oppdatere, prøver å legge til ny...");
+    if (updateError) {
+      errorMessage = `Kunne ikke oppdatere rolle: ${updateError.message}`;
+    } else if (!updateData || updateData.length === 0) {
+      // Hvis det ikke finnes noen rad å oppdatere, legg til ny
       const { data: insertData, error: insertError } = await supabase
         .from("household_members")
         .insert([{
@@ -47,16 +39,12 @@ if (Astro.request.method === "POST") {
         }])
         .select();
 
-      console.log("  Insert result:", { insertData, insertError });
-
       if (insertError) {
         errorMessage = `Kunne ikke legge deg til: ${insertError.message}`;
       } else {
         successMessage = "Du er nå administrator for denne husstanden!";
         return Astro.redirect("/husstand");
       }
-    } else if (updateError) {
-      errorMessage = `Kunne ikke oppdatere rolle: ${updateError.message}`;
     } else {
       successMessage = "Du er nå administrator for denne husstanden!";
       return Astro.redirect("/husstand");
@@ -76,6 +64,8 @@ if (Astro.request.method === "POST") {
         .single();
 
       if (!profile) {
+        // Prøv å finne bruker direkte i auth.users og opprett profil
+        // Dette er en fallback hvis triggeren feilet
         errorMessage = `Fant ingen bruker med e-post ${email}. Personen må registrere seg først.`;
       } else {
         // Sjekk om bruker allerede er medlem
@@ -175,17 +165,8 @@ if (members && members.length > 0) {
   }));
 }
 
-// Debug: Logg ut medlemmer og roller
-console.log("🔍 Debug husstand.astro:");
-console.log("  Alle medlemmer:", membersWithProfiles);
-console.log("  Members error:", membersError);
-console.log("  Innlogget bruker ID:", user?.id);
-
 // Sjekk om nåværende bruker er admin
 const currentUserMember = membersWithProfiles?.find(m => m.user_id === user?.id);
-console.log("  Ditt medlemskap:", currentUserMember);
-console.log("  Er du admin?", currentUserMember?.role === "admin");
-
 const isAdmin = currentUserMember?.role === "admin";
 ---
 
