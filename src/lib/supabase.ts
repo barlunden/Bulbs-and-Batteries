@@ -18,7 +18,7 @@ export const supabase = createClient(
 // (første admin-insert, make_me_admin, etc.)
 export const supabaseAdmin = createClient(
   import.meta.env.SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY || import.meta.env.SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: false,
@@ -26,6 +26,11 @@ export const supabaseAdmin = createClient(
     }
   }
 )
+
+// Sjekk om service role key er sett
+if (!import.meta.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY ikkje sett! Bruker ANON_KEY som fallback. RLS vil kunne blokkere visse operasjonar.')
+}
 
 // Lag ein Supabase-klient med brukar-spesifikk access token (per request)
 // Dette forhindrar at sessionar blir blanda på server-side
