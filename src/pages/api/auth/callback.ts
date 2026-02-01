@@ -23,16 +23,15 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   }
 
   if (data.session) {
-    const isProduction = import.meta.env.PROD;
     cookies.set("sb-access-token", data.session.access_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction
+      secure: false
     });
     cookies.set("sb-refresh-token", data.session.refresh_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction
+      secure: false
     });
     return redirect("/");
   }

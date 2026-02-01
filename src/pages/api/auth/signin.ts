@@ -24,16 +24,15 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 
   if (data.session) {
     console.log("✅ Login successful, setting cookies");
-    const isProduction = import.meta.env.PROD;
     cookies.set("sb-access-token", data.session.access_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction
+      secure: false
     });
     cookies.set("sb-refresh-token", data.session.refresh_token, { 
       path: "/", 
       sameSite: "lax", 
-      secure: isProduction
+      secure: false
     });
     console.log("✅ Cookies set, redirecting to /");
     return redirect("/");

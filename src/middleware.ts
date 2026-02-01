@@ -3,10 +3,10 @@ import { supabase, createAuthenticatedClient } from "./lib/supabase";
 
 export const onRequest = defineMiddleware(async ({ cookies, url, redirect, locals }, next) => {
   // 1. Definer opne stiar
-  const publicPaths = ["/login", "/api/auth/signin", "/api/auth/callback", "/vel-hus"];
-  const isPublicPath = publicPaths.some(path => url.pathname.startsWith(path));
+  const authPaths = ["/login", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout", "/api/auth/callback"];
+  const isAuthPath = authPaths.some(path => url.pathname.startsWith(path));
 
-  if (isPublicPath) {
+  if (isAuthPath) {
     return next();
   }
 
@@ -38,6 +38,11 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
 
   // 3. Set Brukar i locals
   locals.user = data.user;
+
+  // 4. Viss brukaren prøver å gå til /vel-hus, slepp dei igjennom (dei har alt auth)
+  if (url.pathname.startsWith("/vel-hus")) {
+    return next();
+  }
 
   // 4. Sjekk om Vidar har vald eit hus
   const activeHouseholdId = cookies.get("active_household_id")?.value;
