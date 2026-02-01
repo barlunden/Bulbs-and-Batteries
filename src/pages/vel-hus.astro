@@ -1,7 +1,7 @@
 ---
 export const prerender = false;
 import Layout from "../layouts/Layout.astro";
-import { supabase, supabaseAdmin, createAuthenticatedClient } from "../lib/supabase";
+import { supabase, createAuthenticatedClient } from "../lib/supabase";
 
 // Middleware har allerede sjekket auth, så vi kan bruke Astro.locals direkte
 const user = Astro.locals.user;
@@ -27,8 +27,8 @@ if (Astro.request.method === "POST") {
     const name = data.get("name")?.toString();
     const type = data.get("type")?.toString() || "home";
     if (name) {
-      // Lag huset (bruk admin-klient for å omgå RLS)
-      const { data: house, error: houseErr } = await supabaseAdmin
+      // Lag huset (RLS er disabled på households)
+      const { data: house, error: houseErr } = await authedSupabase
         .from("households")
         .insert([{ name, type }])
         .select()
@@ -40,9 +40,8 @@ if (Astro.request.method === "POST") {
       }
 
       if (house) {
-        // Gjør brukeren til Admin i det nye huset
-        // Bruk admin-klient for å omgå RLS (første admin-insert)
-        const { error: memberErr } = await supabaseAdmin.from("household_members").insert([{
+        // Gjør brukeren til Admin (RLS er disabled på household_members)
+        const { error: memberErr } = await authedSupabase.from("household_members").insert([{
           household_id: house.id,
           user_id: user.id,
           role: "admin"
