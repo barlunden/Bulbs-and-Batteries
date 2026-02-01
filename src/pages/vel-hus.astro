@@ -27,7 +27,7 @@ if (Astro.request.method === "POST") {
     const name = data.get("name")?.toString();
     const type = data.get("type")?.toString() || "home";
     if (name) {
-      // Lag huset
+      // Lag huset (bruk authedSupabase for RLS)
       const { data: house, error: houseErr } = await authedSupabase
         .from("households")
         .insert([{ name, type }])
@@ -36,7 +36,8 @@ if (Astro.request.method === "POST") {
 
       if (house) {
         // Gjør brukeren til Admin i det nye huset
-        await authedSupabase.from("household_members").insert([{
+        // Bruk global supabase-klient for å omgå RLS (første admin-insert)
+        await supabase.from("household_members").insert([{
           household_id: house.id,
           user_id: user.id,
           role: "admin"
