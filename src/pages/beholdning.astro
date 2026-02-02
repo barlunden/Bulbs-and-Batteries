@@ -132,7 +132,7 @@ if (Astro.request.method === "POST") {
 /// 2. AUTO-GENERERING (Robust versjon)
 const { data: usedItems } = await authedSupabase
   .from("items")
-  .select("type, shape, quantity, required_count")
+  .select("type, shape, quantity, required_count, category")
   .eq("household_id", householdId)
   .not("type", "is", null);
 
@@ -152,34 +152,59 @@ if (usedItems && existingStock) {
   }[] = [];
   
   for (const item of usedItems) {
-    // Vi vaskar begge verdiane før vi samanliknar for å unngå loop
     const itemType = item.type?.trim().toUpperCase();
     const itemShape = item.shape?.trim() || "";
+    const itemCategory = item.category || "bulb";
+    const quantity = item.quantity || 1;
+    const requiredCount = item.required_count || 1;
 
-    const exists = existingStock.some(s => 
-      s.type?.trim().toUpperCase() === itemType && 
-      (s.shape?.trim() || "") === itemShape
-    );
-
-    if (!exists) {
-      // Sjekk om vi allerede har lagt den til i lista over ting som skal opprettes 
-      // (viss fleire lamper brukar same pære)
-      const alreadyInBatch = itemsToCreate.some(i => i.type === itemType && i.shape === itemShape);
+    // Spesialhandtering for printerblekk: split komma-separerte patronar
+    if (itemCategory === "ink" && itemShape.includes(",")) {
+      const cartridges = itemShape.split(",").map((c: string) => c.trim());
       
-      if (!alreadyInBatch) {
-        // Beregn total mengd basert på quantity (antal like enheter) og required_count (pærer per enhet)
-        const quantity = item.quantity || 1;
-        const requiredCount = item.required_count || 1;
-        const totalNeeded = quantity * requiredCount;
+      for (const cartridge of cartridges) {
+        const exists = existingStock.some(s => 
+          s.type?.trim().toUpperCase() === itemType && 
+          (s.shape?.trim() || "") === cartridge
+        );
+
+        if (!exists) {
+          const alreadyInBatch = itemsToCreate.some(i => i.type === itemType && i.shape === cartridge);
+          
+          if (!alreadyInBatch) {
+            itemsToCreate.push({
+              type: itemType,
+              shape: cartridge, // Ein stock-rad per patron
+              current_count: 0,
+              min_threshold: quantity, // Ein patron per printer
+              category: 'ink',
+              household_id: householdId
+            });
+          }
+        }
+      }
+    } else {
+      // Vanleg logikk for lamper og batterier
+      const exists = existingStock.some(s => 
+        s.type?.trim().toUpperCase() === itemType && 
+        (s.shape?.trim() || "") === itemShape
+      );
+
+      if (!exists) {
+        const alreadyInBatch = itemsToCreate.some(i => i.type === itemType && i.shape === itemShape);
         
-        itemsToCreate.push({
-          type: itemType,
-          shape: itemShape,
-          current_count: 0,
-          min_threshold: totalNeeded, // Sett terskelverdien basert på totalt behov
-          category: 'bulb',
-          household_id: householdId
-        });
+        if (!alreadyInBatch) {
+          const totalNeeded = quantity * requiredCount;
+          
+          itemsToCreate.push({
+            type: itemType,
+            shape: itemShape,
+            current_count: 0,
+            min_threshold: totalNeeded,
+            category: itemCategory,
+            household_id: householdId
+          });
+        }
       }
     }
   }
@@ -336,190 +361,213 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
       </div>
     )}
 
-    <div class="grid gap-4 mb-10">
-      <!-- LYSPÆRER -->
-      {(categoryFilter === "all" || categoryFilter === "bulb") && (
-      <section class="bg-gradient-to-br from-amber-400 to-yellow-500 p-6 rounded-[2rem] shadow-xl">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="bg-white/30 p-2 rounded-xl text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
-          </div>
-          <h2 class="text-white font-black uppercase tracking-widest text-xs">
-            💡 Kjøp Lyspærer
-          </h2>
+    <!-- FLOATING ACTION BUTTON -->
+    <button 
+      id="openDrawer"
+      class="fixed bottom-6 right-6 z-40 bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform duration-200"
+      aria-label="Kjøp inn varer"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+    </button>
+
+    <!-- DRAWER OVERLAY -->
+    <div id="drawerOverlay" class="fixed inset-0 bg-black/50 z-50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+    <!-- DRAWER -->
+    <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-50 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 overflow-y-auto">
+      <div class="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 p-6 z-10">
+        <div class="flex items-center justify-between">
+          <h2 class="text-white font-black text-xl">Kjøp inn varer</h2>
+          <button 
+            id="closeDrawer"
+            class="text-white/80 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
+            aria-label="Lukk"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
         </div>
+      </div>
 
-        <form method="POST" class="space-y-4">
-          <input type="hidden" name="action" value="add_new_stock_type" />
-          <input type="hidden" name="category" value="bulb" />
+      <div class="p-6 space-y-6">
+        <!-- LYSPÆRER -->
+        <section class="bg-gradient-to-br from-amber-400 to-yellow-500 p-6 rounded-[2rem] shadow-xl">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="bg-white/30 p-2 rounded-xl text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+            </div>
+            <h2 class="text-white font-black uppercase tracking-widest text-xs">
+              💡 Kjøp Lyspærer
+            </h2>
+          </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <form method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="add_new_stock_type" />
+            <input type="hidden" name="category" value="bulb" />
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Type (E27, E14, GU10)</label>
+                <input
+                  type="text"
+                  name="type"
+                  required
+                  placeholder="E27"
+                  class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
+                />
+              </div>
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Form</label>
+                <select name="shape" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
+                  <option value="">Standard</option>
+                  <option value="Candle">Krone</option>
+                  <option value="Globe">Globe</option>
+                  <option value="Spot">Spot</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Antall</label>
+                <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Min. nivå</label>
+                <input type="number" name="minThreshold" value="2" min="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Watt</label>
+                <input type="number" name="watt" placeholder="60" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Lumen</label>
+                <input type="number" name="lumen" placeholder="800" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Kelvin</label>
+                <input type="text" name="colorTemp" placeholder="2700K" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+            </div>
+
+            <label class="flex items-center gap-3 bg-white/50 p-4 rounded-xl cursor-pointer">
+              <input type="checkbox" name="dimmable" value="true" class="w-5 h-5 rounded accent-amber-600" />
+              <span class="text-amber-900 font-bold text-sm">💡 Dimbar pære</span>
+            </label>
+
+            <button type="submit" class="w-full bg-white text-amber-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
+              LEGG TIL PÆRER
+            </button>
+          </form>
+        </section>
+
+        <!-- BATTERI -->
+        <section class="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 rounded-[2rem] shadow-xl">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="bg-white/30 p-2 rounded-xl text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><path d="M22 11v2"/></svg>
+            </div>
+            <h2 class="text-white font-black uppercase tracking-widest text-xs">
+              🔋 Kjøp Batteri
+            </h2>
+          </div>
+
+          <form method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="add_new_stock_type" />
+            <input type="hidden" name="category" value="battery" />
+            <input type="hidden" name="shape" value="" />
+
             <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Type (E27, E14, GU10)</label>
+              <label class="block text-[9px] font-black text-emerald-900 uppercase mb-1 ml-1">Type (AA, AAA, CR2032)</label>
               <input
                 type="text"
                 name="type"
                 required
-                placeholder="E27"
+                placeholder="AA"
                 class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
               />
             </div>
-            <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Form</label>
-              <select name="shape" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
-                <option value="">Standard</option>
-                <option value="Candle">Krone</option>
-                <option value="Globe">Globe</option>
-                <option value="Spot">Spot</option>
-              </select>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[9px] font-black text-emerald-900 uppercase mb-1 ml-1">Antall</label>
+                <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-black text-emerald-900 uppercase mb-1 ml-1">Min. nivå</label>
+                <input type="number" name="minThreshold" value="4" min="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
             </div>
+
+            <label class="flex items-center gap-3 bg-white/50 p-4 rounded-xl cursor-pointer">
+              <input type="checkbox" name="rechargeable" value="true" class="w-5 h-5 rounded accent-emerald-600" />
+              <span class="text-emerald-900 font-bold text-sm">🔋 Oppladbart batteri</span>
+            </label>
+
+            <button type="submit" class="w-full bg-white text-emerald-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
+              LEGG TIL BATTERI
+            </button>
+          </form>
+        </section>
+
+        <!-- PRINTERBLEKK -->
+        <section class="bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-[2rem] shadow-xl">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="bg-white/30 p-2 rounded-xl text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+            </div>
+            <h2 class="text-white font-black uppercase tracking-widest text-xs">
+              🖨️ Kjøp Printerblekk
+            </h2>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <form method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="add_new_stock_type" />
+            <input type="hidden" name="category" value="ink" />
+            <input type="hidden" name="shape" value="" />
+
             <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Antall</label>
-              <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Type (HP 302 XL, Canon PG-545)</label>
+              <input
+                type="text"
+                name="type"
+                required
+                placeholder="HP 302 XL"
+                class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
+              />
             </div>
+
             <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Min. nivå</label>
-              <input type="number" name="minThreshold" value="2" min="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Farge/Patron</label>
+              <input
+                type="text"
+                name="shape"
+                required
+                placeholder="Black, Cyan, Light Cyan..."
+                class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
+              />
+              <p class="text-[8px] text-purple-700 mt-1 ml-1 italic">Må matche patronnamn frå registrering</p>
             </div>
-          </div>
 
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Watt</label>
-              <input type="number" name="watt" placeholder="60" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Antall</label>
+                <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Min. nivå</label>
+                <input type="number" name="minThreshold" value="1" min="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
+              </div>
             </div>
-            <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Lumen</label>
-              <input type="number" name="lumen" placeholder="800" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-            <div>
-              <label class="block text-[9px] font-black text-amber-900 uppercase mb-1 ml-1">Kelvin</label>
-              <input type="text" name="colorTemp" placeholder="2700K" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-          </div>
 
-          <label class="flex items-center gap-3 bg-white/50 p-4 rounded-xl cursor-pointer">
-            <input type="checkbox" name="dimmable" value="true" class="w-5 h-5 rounded accent-amber-600" />
-            <span class="text-amber-900 font-bold text-sm">💡 Dimbar pære</span>
-          </label>
-
-          <button type="submit" class="w-full bg-white text-amber-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
-            LEGG TIL PÆRER
-          </button>
-        </form>
-      </section>
-      )}
-
-      <!-- BATTERI -->
-      {(categoryFilter === "all" || categoryFilter === "battery") && (
-      <section class="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 rounded-[2rem] shadow-xl">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="bg-white/30 p-2 rounded-xl text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><path d="M22 11v2"/></svg>
-          </div>
-          <h2 class="text-white font-black uppercase tracking-widest text-xs">
-            🔋 Kjøp Batteri
-          </h2>
-        </div>
-
-        <form method="POST" class="space-y-4">
-          <input type="hidden" name="action" value="add_new_stock_type" />
-          <input type="hidden" name="category" value="battery" />
-          <input type="hidden" name="shape" value="" />
-
-          <div>
-            <label class="block text-[9px] font-black text-emerald-900 uppercase mb-1 ml-1">Type (AA, AAA, CR2032)</label>
-            <input
-              type="text"
-              name="type"
-              required
-              placeholder="AA"
-              class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
-            />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[9px] font-black text-emerald-900 uppercase mb-1 ml-1">Antall</label>
-              <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-            <div>
-              <label class="block text-[9px] font-black text-emerald-900 uppercase mb-1 ml-1">Min. nivå</label>
-              <input type="number" name="minThreshold" value="4" min="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-          </div>
-
-          <label class="flex items-center gap-3 bg-white/50 p-4 rounded-xl cursor-pointer">
-            <input type="checkbox" name="rechargeable" value="true" class="w-5 h-5 rounded accent-emerald-600" />
-            <span class="text-emerald-900 font-bold text-sm">🔋 Oppladbart batteri</span>
-          </label>
-
-          <button type="submit" class="w-full bg-white text-emerald-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
-            LEGG TIL BATTERI
-          </button>
-        </form>
-      </section>
-      )}
-
-      <!-- PRINTERBLEKK -->
-      {(categoryFilter === "all" || categoryFilter === "ink") && (
-      <section class="bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-[2rem] shadow-xl">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="bg-white/30 p-2 rounded-xl text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-          </div>
-          <h2 class="text-white font-black uppercase tracking-widest text-xs">
-            🖨️ Kjøp Printerblekk
-          </h2>
-        </div>
-
-        <form method="POST" class="space-y-4">
-          <input type="hidden" name="action" value="add_new_stock_type" />
-          <input type="hidden" name="category" value="ink" />
-          <input type="hidden" name="shape" value="" />
-
-          <div>
-            <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Type (HP 302 XL, Canon PG-545)</label>
-            <input
-              type="text"
-              name="type"
-              required
-              placeholder="HP 302 XL"
-              class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white"
-            />
-          </div>
-
-          <div>
-            <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Farge</label>
-            <select name="shape" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
-              <option value="Black">Svart</option>
-              <option value="Cyan">Cyan</option>
-              <option value="Magenta">Magenta</option>
-              <option value="Yellow">Gul</option>
-              <option value="Color">Farge (tri-color)</option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Antall</label>
-              <input type="number" name="initialCount" required placeholder="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-            <div>
-              <label class="block text-[9px] font-black text-purple-900 uppercase mb-1 ml-1">Min. nivå</label>
-              <input type="number" name="minThreshold" value="1" min="0" class="w-full bg-white rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-          </div>
-
-          <button type="submit" class="w-full bg-white text-purple-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
-            LEGG TIL BLEKK
-          </button>
-        </form>
-      </section>
-      )}
+            <button type="submit" class="w-full bg-white text-purple-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
+              LEGG TIL BLEKK
+            </button>
+          </form>
+        </section>
+      </div>
     </div>
 
     <section>
@@ -567,3 +615,28 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
     </section>
   </main>
 </Layout>
+<script>
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('drawerOverlay');
+  const openBtn = document.getElementById('openDrawer');
+  const closeBtn = document.getElementById('closeDrawer');
+
+  function openDrawer() {
+    drawer?.classList.remove('translate-x-full');
+    overlay?.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeDrawer() {
+    drawer?.classList.add('translate-x-full');
+    overlay?.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  openBtn?.addEventListener('click', openDrawer);
+  closeBtn?.addEventListener('click', closeDrawer);
+  overlay?.addEventListener('click', closeDrawer);
+
+  // Lukk ved ESC-tast
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDrawer();
+  });
+</script>

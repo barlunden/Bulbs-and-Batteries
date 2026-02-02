@@ -38,14 +38,21 @@ if (Astro.request.method === "POST") {
   try {
     const data = await Astro.request.formData();
     const action = data.get("action");
+    
+    console.log("🚀 POST REQUEST MOTTATT");
+    console.log("Action:", action);
+    console.log("FormData keys:", Array.from(data.keys()));
 
     if (action === "replace_item") {
       const itemId = data.get("itemId")?.toString();
       const type = data.get("itemType")?.toString();
       const shape = data.get("itemShape")?.toString() || "";
+      const category = data.get("itemCategory")?.toString();
       const replaceQuantity = Number(data.get("replaceQuantity") || 1);
       const dimmable = data.get("dimmable") === "true";
       const rechargeable = data.get("rechargeable") === "true";
+      
+      console.log("🔧 REPLACE_ITEM action - Category:", category, "Type:", type);
 
       // Oppdater last_replaced på enheten
       await authedSupabase
@@ -54,26 +61,86 @@ if (Astro.request.method === "POST") {
         .eq("id", itemId)
         .eq("household_id", householdId);
 
-      let query = authedSupabase
-        .from("stock")
-        .select("id, current_count")
-        .eq("household_id", householdId)
-        .eq("type", type)
-        .eq("dimmable", dimmable)
-        .eq("rechargeable", rechargeable);
+      // Spesialhandtering for printerblekk
+      if (category === "ink") {
+        const selectedCartridges = data.getAll("cartridges"); // ["Black", "Cyan", ...]
+        
+        console.log("🖨️ PRINTER REPLACE ACTION TRIGGA!");
+        console.log("Type:", type);
+        console.log("Category:", category);
+        console.log("Selected cartridges RAW:", selectedCartridges);
+        console.log("Selected cartridges length:", selectedCartridges.length);
+        
+        // Valider at minst ein patron er valgt
+        if (selectedCartridges.length === 0) {
+          console.warn("⚠️ INGEN patronar valt for bytte");
+          return Astro.redirect(Astro.url.pathname + "?error=no-cartridges");
+        }
+        
+        console.log("✅ Byttar patronar:", selectedCartridges);
+        
+        // Reduser stock for kvar valgt patron
+        for (const cartridge of selectedCartridges) {
+          let query = authedSupabase
+            .from("stock")
+            .select("id, current_count")
+            .eq("household_id", householdId)
+            .eq("type", type)
+            .eq("shape", cartridge) // Match spesifikk patron-farge
+            .eq("dimmable", false)
+            .eq("rechargeable", false);
 
-      if (shape && shape !== "null" && shape !== "") {
-        query = query.eq("shape", shape);
+          const { data: stock, error } = await query.single();
+
+          if (error) {
+            console.error(`❌ Feil ved henting av stock for ${cartridge}:`, error);
+            continue;
+          }
+
+          if (stock) {
+            const oldCount = stock.current_count;
+            const newCount = Math.max(0, oldCount - 1);
+            console.log(`📉 Reduserer ${cartridge} frå ${oldCount} til ${newCount}`);
+            
+            const { error: updateError } = await authedSupabase.from("stock")
+              .update({ current_count: newCount })
+              .eq("id", stock.id);
+              
+            if (updateError) {
+              console.error(`❌ Feil ved oppdatering av ${cartridge}:`, updateError);
+            } else {
+              console.log(`✅ ${cartridge} oppdatert!`);
+            }
+          } else {
+            console.warn(`⚠️ Fann ikkje stock for ${type} - ${cartridge}`);
+          }
+        }
       } else {
-        query = query.or('shape.is.null,shape.eq.""');
-      }
+        // Vanleg logikk for lamper og batterier
+        const bulbCount = Number(data.get("bulbCount") || replaceQuantity);
+        const totalToReduce = bulbCount * replaceQuantity; // bulbCount pærer per lampe × antal lamper
+        
+        let query = authedSupabase
+          .from("stock")
+          .select("id, current_count")
+          .eq("household_id", householdId)
+          .eq("type", type)
+          .eq("dimmable", dimmable)
+          .eq("rechargeable", rechargeable);
 
-      const { data: stock } = await query.single();
+        if (shape && shape !== "null" && shape !== "") {
+          query = query.eq("shape", shape);
+        } else {
+          query = query.or('shape.is.null,shape.eq.""');
+        }
 
-      if (stock) {
-        await authedSupabase.from("stock")
-          .update({ current_count: Math.max(0, (stock.current_count || 0) - replaceQuantity) })
-          .eq("id", stock.id);
+        const { data: stock } = await query.single();
+
+        if (stock) {
+          await authedSupabase.from("stock")
+            .update({ current_count: Math.max(0, (stock.current_count || 0) - totalToReduce) })
+            .eq("id", stock.id);
+        }
       }
     }
 
@@ -82,7 +149,13 @@ if (Astro.request.method === "POST") {
       
       // Spesialhandtering for printere med fleire patronar
       if (category === "ink") {
-        const cartridges = data.getAll("cartridges"); // Array av valde fargar
+        const cartridgesRaw = data.get("cartridges")?.toString() || "";
+        // Parse patronar frå textarea (split på linjeskift eller komma)
+        const cartridges = cartridgesRaw
+          .split(/[\n,]+/)  // Split på linjeskift eller komma
+          .map(c => c.trim())  // Fjern whitespace
+          .filter(c => c.length > 0);  // Fjern tomme linjer
+        
         const printerName = data.get("name")?.toString();
         const inkType = data.get("type")?.toString().toUpperCase();
         const model = data.get("model")?.toString();
@@ -92,25 +165,25 @@ if (Astro.request.method === "POST") {
         const quantity = Number(data.get("quantity") || 1);
         const notes = data.get("notes")?.toString();
         
-        // Opprett ein item per patron
-        const itemsToInsert = cartridges.map(cartridge => ({
-          name: `${printerName} - ${cartridge}`,
+        // Lagre patronar som komma-separert string i shape-feltet
+        const cartridgesString = cartridges.join(","); // "Black,Cyan,Magenta,Yellow"
+        
+        await authedSupabase.from("items").insert([{
+          name: printerName,
           category: "ink",
           type: inkType,
-          shape: cartridge, // Black, Cyan, Magenta, Yellow
+          shape: cartridgesString, // Lagre alle patronar her
           building,
           department,
           detail,
-          required_count: 1, // Ein patron per "item"
+          required_count: cartridges.length, // Antal patronar
           quantity,
-          color_temp: model, // Lagre modell i color_temp-feltet
+          color_temp: model, // Lagre modell her
           dimmable: false,
           rechargeable: false,
           notes,
           household_id: householdId,
-        }));
-        
-        await authedSupabase.from("items").insert(itemsToInsert);
+        }]);
       } else {
         // Vanleg insert for lamper og batterier
         await authedSupabase.from("items").insert([{
@@ -218,6 +291,34 @@ const stockMap = Object.fromEntries(
       </div>
     </header>
 
+    <!-- FLOATING ACTION BUTTON -->
+    <button 
+      id="openDrawer"
+      class="fixed bottom-6 right-6 z-40 bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform duration-200"
+      aria-label="Registrer utstyr"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+    </button>
+
+    <!-- DRAWER OVERLAY -->
+    <div id="drawerOverlay" class="fixed inset-0 bg-black/50 z-50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+    <!-- DRAWER -->
+    <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-50 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 overflow-y-auto">
+      <div class="sticky top-0 bg-gradient-to-r from-amber-500 to-orange-600 p-6 z-10">
+        <div class="flex items-center justify-between">
+          <h2 class="text-white font-black text-xl">Registrer utstyr</h2>
+          <button 
+            id="closeDrawer"
+            class="text-white/80 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
+            aria-label="Lukk"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-6">
     <div class="grid gap-4 mb-10">
       <!-- LAMPER/LYSPÆRER -->
       <details class="group bg-gradient-to-br from-amber-400 to-yellow-500 rounded-[2rem] overflow-hidden">
@@ -463,25 +564,15 @@ const stockMap = Object.fromEntries(
             </div>
 
             <div>
-              <label class="block text-[9px] font-black uppercase text-purple-900 mb-2 ml-1">Kva patronar brukar printeren?</label>
-              <div class="grid grid-cols-2 gap-3">
-                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
-                  <input type="checkbox" name="cartridges" value="Black" class="w-5 h-5 rounded accent-purple-600" />
-                  <span class="text-purple-900 font-bold text-sm">⬛ Svart</span>
-                </label>
-                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
-                  <input type="checkbox" name="cartridges" value="Cyan" class="w-5 h-5 rounded accent-purple-600" />
-                  <span class="text-purple-900 font-bold text-sm">🟦 Cyan</span>
-                </label>
-                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
-                  <input type="checkbox" name="cartridges" value="Magenta" class="w-5 h-5 rounded accent-purple-600" />
-                  <span class="text-purple-900 font-bold text-sm">🟪 Magenta</span>
-                </label>
-                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
-                  <input type="checkbox" name="cartridges" value="Yellow" class="w-5 h-5 rounded accent-purple-600" />
-                  <span class="text-purple-900 font-bold text-sm">🟨 Gul</span>
-                </label>
-              </div>
+              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Kva patronar brukar printeren? (eitt navn per linje)</label>
+              <textarea 
+                name="cartridges" 
+                required 
+                rows="4" 
+                placeholder="Black&#10;Cyan&#10;Magenta&#10;Yellow"
+                class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white resize-none"
+              ></textarea>
+              <p class="text-[8px] text-purple-700 mt-1 ml-1 italic">Tips: Black, Cyan, Magenta, Yellow, Light Cyan, Light Magenta, Photo Black, Matte Black, Gray, Light Gray, Red, Green...</p>
             </div>
 
             <div>
@@ -531,6 +622,8 @@ const stockMap = Object.fromEntries(
           </form>
         </div>
       </details>
+    </div>
+      </div>
     </div>
 
     <!-- SØK OG FILTER -->
@@ -600,12 +693,30 @@ const stockMap = Object.fromEntries(
       </div>
 
       <div class="grid gap-4">
-        {items.map(item => (
-          <InventoryCard 
-            {...item} 
-            inStockCount={stockMap[`${item.type}-${item.shape || ""}-${item.dimmable || false}-${item.rechargeable || false}`] || 0} 
-          />
-        ))}
+        {items.map(item => {
+          // Spesialhandtering av inStockCount for printerar
+          let inStockCount = 0;
+          
+          if (item.category === 'ink' && item.shape?.includes(',')) {
+            // For printerar: finn minimum stock av alle patronar
+            const cartridges = item.shape.split(',').map(c => c.trim());
+            const cartridgeCounts = cartridges.map(cartridge => 
+              stockMap[`${item.type}-${cartridge}-false-false`] || 0
+            );
+            inStockCount = Math.min(...cartridgeCounts);
+          } else {
+            // Vanleg logikk for lamper og batterier
+            inStockCount = stockMap[`${item.type}-${item.shape || ""}-${item.dimmable || false}-${item.rechargeable || false}`] || 0;
+          }
+          
+          return (
+            <InventoryCard 
+              {...item} 
+              inStockCount={inStockCount}
+              stockMap={stockMap}
+            />
+          );
+        })}
       </div>
     </section>
 
@@ -625,4 +736,29 @@ const stockMap = Object.fromEntries(
   
   // Legg til global funksjon for å kunne brukes fra inline event handlers
   (window as any).updateFilter = updateFilter;
+
+  // DRAWER FUNKSJONALITET
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('drawerOverlay');
+  const openBtn = document.getElementById('openDrawer');
+  const closeBtn = document.getElementById('closeDrawer');
+
+  function openDrawer() {
+    drawer?.classList.remove('translate-x-full');
+    overlay?.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeDrawer() {
+    drawer?.classList.add('translate-x-full');
+    overlay?.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  openBtn?.addEventListener('click', openDrawer);
+  closeBtn?.addEventListener('click', closeDrawer);
+  overlay?.addEventListener('click', closeDrawer);
+
+  // Lukk ved ESC-tast
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDrawer();
+  });
 </script>

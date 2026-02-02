@@ -2,7 +2,7 @@
 export interface InventoryItem {
   id: string;
   name: string;
-  category: 'bulb' | 'battery';
+  category: 'bulb' | 'battery' | 'ink';
   type: string;
   shape?: string;
   location?: string; // Deprecated - bruk building/department/detail
@@ -24,7 +24,7 @@ export interface StockItem {
   id: string;
   type: string;
   shape?: string; // Lagt til for å skille f.eks. E27 Standard fra E27 Krone
-  category: 'battery' | 'bulb';
+  category: 'battery' | 'bulb' | 'ink' ;
   currentCount: number;
   minThreshold: number;
   dimmable?: boolean;

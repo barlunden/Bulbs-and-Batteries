@@ -3,7 +3,7 @@
 interface Props {
   id: string;
   name: string;
-  category: "bulb" | "battery";
+  category: "bulb" | "battery" | "ink";
   type: string;
   shape?: string;
   location?: string; // Deprecated, bruk building/department/detail
@@ -18,23 +18,36 @@ interface Props {
   dimmable?: string | boolean;
   rechargeable?: string | boolean;
   lastReplaced?: string;
+  stockMap?: Record<string, number>; // For å vise stock per patron
 }
 
 const { 
   id, name, category, type, shape, location, 
   building, department, detail, quantity,
   requiredCount, notes, inStockCount, colorTemp,
-  dimmable, rechargeable, lastReplaced
+  dimmable, rechargeable, lastReplaced, stockMap
 } = Astro.props;
 
 // Konverterer til boolean i tilfelle dei kjem som strengar frå databasen
 const isRechargeable = rechargeable === true || rechargeable === "true";
 const isDimmable = dimmable === true || dimmable === "true";
 
+// For printerblekk: parse patronar frå shape-feltet
+const isPrinter = category === "ink";
+const cartridges = isPrinter && shape ? shape.split(",").map(c => c.trim()) : [];
+
+// For printerar: hent stock-count per patron
+const cartridgeStocks = isPrinter && stockMap 
+  ? cartridges.map(cartridge => ({
+      name: cartridge,
+      count: stockMap[`${type}-${cartridge}-false-false`] || 0
+    }))
+  : [];
+
 // Sjekk om vi har nok på lager (berre relevant for dingsar som ikkje er oppladbare)
 const itemQuantity = quantity || 1;
 const totalRequired = requiredCount * itemQuantity;
-const isOutOfStock = !isRechargeable && (inStockCount < totalRequired);
+const isOutOfStock = !isRechargeable && !isPrinter && (inStockCount < totalRequired);
 
 // Bygg opp lokasjon frå strukturerte felt, eller fall tilbake på gammal location
 const locationDisplay = building || department || detail
@@ -84,7 +97,7 @@ const formatDate = (dateStr?: string) => {
       </h3>
     </div>
     
-    {!isRechargeable && (
+    {!isRechargeable && !isPrinter && (
       <div class={`px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-tighter border-2 ${
         isOutOfStock 
           ? 'bg-red-500 border-red-500 text-white animate-pulse' 
@@ -100,7 +113,32 @@ const formatDate = (dateStr?: string) => {
       {type}
     </span>
 
-    {shape && !isRechargeable && (
+    {isPrinter && colorTemp && (
+      <span class="bg-purple-100 text-purple-700 text-[10px] font-black px-3 py-1.5 rounded-xl uppercase border border-purple-200/50">
+        🖨️ {colorTemp}
+      </span>
+    )}
+
+    {isPrinter && cartridgeStocks.length > 0 && (
+      <div class="flex flex-wrap gap-1.5">
+        {cartridgeStocks.map((item) => (
+          <span class={`text-[10px] font-black px-2.5 py-1.5 rounded-xl uppercase border ${
+            item.count > 0 
+              ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' 
+              : 'bg-red-100 text-red-700 border-red-200/50'
+          }`}>
+            {item.name === 'Black' && '⬛'} 
+            {item.name === 'Cyan' && '🟦'} 
+            {item.name === 'Magenta' && '🟪'} 
+            {item.name === 'Yellow' && '🟨'} 
+            {item.name === 'Color' && '🌈'} 
+            {item.name} ({item.count})
+          </span>
+        ))}
+      </div>
+    )}
+
+    {shape && !isRechargeable && !isPrinter && (
       <span class="bg-indigo-100 text-indigo-700 text-[10px] font-black px-3 py-1.5 rounded-xl uppercase border border-indigo-200/50">
         📦 {shape}
       </span>
@@ -112,7 +150,7 @@ const formatDate = (dateStr?: string) => {
       </span>
     )}
 
-    {colorTemp && (
+    {colorTemp && !isPrinter && (
       <span class="bg-slate-100 text-slate-600 text-[10px] font-black px-3 py-1.5 rounded-xl uppercase">
         🌡️ {colorTemp}
       </span>
@@ -139,18 +177,63 @@ const formatDate = (dateStr?: string) => {
     </div>
   )}
 
-  <form method="POST">
+  <form method="POST" id={`form-${id}`}>
     <input type="hidden" name="action" value="replace_item" />
     <input type="hidden" name="itemId" value={id} />
     <input type="hidden" name="itemType" value={type} />
     <input type="hidden" name="itemShape" value={shape || ""} />
+    <input type="hidden" name="itemCategory" value={category} />
     <input type="hidden" name="dimmable" value={isDimmable ? "true" : "false"} />
     <input type="hidden" name="rechargeable" value={isRechargeable ? "true" : "false"} />
     
-    {itemQuantity > 1 && !isRechargeable ? (
+    {isPrinter && cartridges.length > 0 && (
+      <div class="mb-4 p-4 bg-purple-50/50 border-2 border-purple-100 rounded-2xl">
+        <label class="block text-[9px] font-black uppercase text-purple-700 mb-3 ml-2">
+          🖨️ Kva patronar skal byttes?
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          {cartridges.map((cartridge) => (
+            <label class="flex items-center gap-2 bg-white px-3 py-2.5 rounded-xl border-2 border-purple-100 cursor-pointer hover:bg-purple-50 transition-colors">
+              <input 
+                type="checkbox" 
+                name="cartridges" 
+                value={cartridge}
+                class="w-4 h-4 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
+              />
+              <span class="text-xs font-bold text-slate-700">
+                {cartridge === 'Black' && '⬛'} 
+                {cartridge === 'Cyan' && '🟦'} 
+                {cartridge === 'Magenta' && '🟪'} 
+                {cartridge === 'Yellow' && '🟨'} 
+                {cartridge === 'Color' && '🌈'} 
+                {cartridge}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
+    
+    {!isPrinter && !isRechargeable && requiredCount > 1 && (
       <div class="mb-3">
         <label class="block text-[9px] font-black uppercase text-slate-500 mb-2 ml-2">
-          Hvor mange skal byttes? (av {itemQuantity} enheter)
+          💡 Kor mange pærer byttar du? (av {requiredCount} i lampa)
+        </label>
+        <input 
+          type="number" 
+          name="bulbCount" 
+          min="1" 
+          max={requiredCount}
+          value={requiredCount}
+          class="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold outline-none focus:border-indigo-400"
+        />
+      </div>
+    )}
+    
+    {itemQuantity > 1 && !isRechargeable && !isPrinter ? (
+      <div class="mb-3">
+        <label class="block text-[9px] font-black uppercase text-slate-500 mb-2 ml-2">
+         Hvor mange enheter skal byttes? (av {itemQuantity} totalt)
         </label>
         <input 
           type="number" 
@@ -161,22 +244,29 @@ const formatDate = (dateStr?: string) => {
           class="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold outline-none focus:border-indigo-400"
         />
       </div>
-    ) : (
+    ) : !isPrinter ? (
       <input type="hidden" name="replaceQuantity" value={isRechargeable ? 0 : 1} />
-    )}
+    ) : null}
     
     <button 
       type="submit" 
-      disabled={isOutOfStock}
+      disabled={isPrinter ? false : isOutOfStock}
       class={`w-full font-black py-4 rounded-[1.5rem] transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.97] ${
-        isRechargeable 
-          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-200' 
-          : isOutOfStock 
-            ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-100' 
-            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-100'
+        isPrinter 
+          ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-200' 
+          : isRechargeable 
+            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-200' 
+            : isOutOfStock 
+              ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-100' 
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-100'
       }`}
     >
-      {isRechargeable ? (
+      {isPrinter ? (
+        <>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+          BYTT BLEKK
+        </>
+      ) : isRechargeable ? (
         <>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h5l2 2h9a2 2 0 0 1 2 2v10"/><path d="M16 22l2 2 4-4"/></svg>
           MARKER SOM LADET
@@ -192,3 +282,20 @@ const formatDate = (dateStr?: string) => {
     </button>
   </form>
 </div>
+
+{isPrinter && (
+  <script define:vars={{ formId: `form-${id}`, itemName: name }}>
+    const form = document.getElementById(formId);
+    
+    form?.addEventListener('submit', (e) => {
+      const formData = new FormData(form);
+      const selectedCartridges = formData.getAll('cartridges');
+      
+      if (selectedCartridges.length === 0) {
+        e.preventDefault();
+        alert('⚠️ Du må velge minst ein patron å bytte!');
+        return false;
+      }
+    });
+  </script>
+)}
