@@ -26,6 +26,7 @@ const searchQuery = url.searchParams.get("search") || "";
 const categoryFilter = url.searchParams.get("category") || "all";
 const typeFilter = url.searchParams.get("type") || "";
 const buildingFilter = url.searchParams.get("building") || "";
+const editId = url.searchParams.get("edit") || null;
 
 // Bestem advancedMode: default basert på husstandstype, kan overskrives manuelt
 const advancedParam = url.searchParams.get("advanced");
@@ -85,6 +86,47 @@ if (Astro.request.method === "POST") {
         
         await deleteQuery;
       }
+      
+      return Astro.redirect(Astro.url.pathname);
+    }
+
+    if (action === "update_item") {
+      const itemId = data.get("itemId")?.toString();
+      const category = data.get("category")?.toString();
+      
+      const updates: any = {
+        name: data.get("name")?.toString(),
+        type: data.get("type")?.toString().toUpperCase(),
+        required_count: Number(data.get("requiredCount") || 1),
+        quantity: Number(data.get("quantity") || 1),
+        building: data.get("building")?.toString() || null,
+        department: data.get("department")?.toString() || null,
+        detail: data.get("detail")?.toString() || null,
+        notes: data.get("notes")?.toString() || null,
+      };
+      
+      if (category === "bulb") {
+        updates.shape = data.get("shape")?.toString() || null;
+        updates.color_temp = data.get("colorTemp")?.toString() || null;
+        updates.dimmable = data.get("dimmable") === "true";
+      } else if (category === "battery") {
+        updates.shape = data.get("shape")?.toString() || null;
+        updates.rechargeable = data.get("rechargeable") === "true";
+      } else if (category === "ink") {
+        const cartridgesRaw = data.get("cartridges")?.toString() || "";
+        const cartridges = cartridgesRaw
+          .split(/[\n,]+/)
+          .map(c => c.trim())
+          .filter(c => c.length > 0);
+        updates.shape = cartridges.join(",");
+        updates.color_temp = data.get("model")?.toString() || null;
+      }
+      
+      await authedSupabase
+        .from("items")
+        .update(updates)
+        .eq("id", itemId)
+        .eq("household_id", householdId);
       
       return Astro.redirect(Astro.url.pathname);
     }
@@ -284,6 +326,18 @@ if (buildingFilter) {
 
 const { data: dbItems } = await query.order("building", { ascending: true });
 
+// Hent item for redigering hvis editId er satt
+let editItem = null;
+if (editId) {
+  const { data } = await authedSupabase
+    .from("items")
+    .select("*")
+    .eq("id", editId)
+    .eq("household_id", householdId)
+    .single();
+  editItem = data;
+}
+
 const { data: dbStock } = await authedSupabase
   .from("stock")
   .select("*")
@@ -353,7 +407,7 @@ const stockMap = Object.fromEntries(
     <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-50 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 overflow-y-auto">
       <div class="sticky top-0 bg-gradient-to-r from-amber-500 to-orange-600 p-6 z-10">
         <div class="flex items-center justify-between">
-          <h2 class="text-white font-black text-xl">Registrer utstyr</h2>
+          <h2 class="text-white font-black text-xl">{editItem ? 'Rediger utstyr' : 'Registrer utstyr'}</h2>
           <button 
             id="closeDrawer"
             class="text-white/80 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
@@ -365,6 +419,110 @@ const stockMap = Object.fromEntries(
       </div>
 
       <div class="p-6 space-y-6">
+    
+    {editItem ? (
+      <!-- REDIGERINGSSKJEMA -->
+      <div class="bg-gradient-to-br from-blue-400 to-indigo-500 rounded-[2rem] overflow-hidden p-6">
+        <h3 class="font-black uppercase tracking-widest text-xs text-white mb-4">✏️ Rediger: {editItem.name}</h3>
+        
+        <form method="POST" class="space-y-4">
+          <input type="hidden" name="action" value="update_item" />
+          <input type="hidden" name="itemId" value={editItem.id} />
+          <input type="hidden" name="category" value={editItem.category} />
+          
+          <div>
+            <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Namn</label>
+            <input type="text" name="name" value={editItem.name} required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Type</label>
+              <input type="text" name="type" value={editItem.type} required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+            {editItem.category !== "ink" && (
+              <div>
+                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Form</label>
+                <input type="text" name="shape" value={editItem.shape || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+              </div>
+            )}
+          </div>
+          
+          {editItem.category === "ink" && (
+            <>
+              <div>
+                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Patronar (ein per linje)</label>
+                <textarea name="cartridges" rows="3" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white">{editItem.shape?.split(',').join('\n')}</textarea>
+              </div>
+              <div>
+                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Printermodell</label>
+                <input type="text" name="model" value={editItem.color_temp || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+              </div>
+            </>
+          )}
+          
+          {editItem.category === "bulb" && (
+            <>
+              <div>
+                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Fargetemp</label>
+                <input type="text" name="colorTemp" value={editItem.color_temp || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+              </div>
+              <label class="flex items-center gap-2 bg-white/30 rounded-xl px-4 py-3">
+                <input type="checkbox" name="dimmable" value="true" checked={editItem.dimmable} class="w-4 h-4" />
+                <span class="font-bold text-white text-sm">Dimbar</span>
+              </label>
+            </>
+          )}
+          
+          {editItem.category === "battery" && (
+            <label class="flex items-center gap-2 bg-white/30 rounded-xl px-4 py-3">
+              <input type="checkbox" name="rechargeable" value="true" checked={editItem.rechargeable} class="w-4 h-4" />
+              <span class="font-bold text-white text-sm">Oppladbar</span>
+            </label>
+          )}
+          
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Bygning</label>
+              <input type="text" name="building" value={editItem.building || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+            <div>
+              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Avdeling</label>
+              <input type="text" name="department" value={editItem.department || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+            <div>
+              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Detalj</label>
+              <input type="text" name="detail" value={editItem.detail || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Tal i eininga</label>
+              <input type="number" name="requiredCount" value={editItem.required_count} min="1" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+            <div>
+              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Antal einingar</label>
+              <input type="number" name="quantity" value={editItem.quantity || 1} min="1" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Merknad</label>
+            <textarea name="notes" rows="2" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white">{editItem.notes || ""}</textarea>
+          </div>
+          
+          <div class="flex gap-3">
+            <button type="submit" class="flex-1 bg-white text-blue-600 font-black py-4 px-6 rounded-2xl hover:bg-blue-50 transition-colors shadow-lg">
+              ✓ LAGRE ENDRINGAR
+            </button>
+            <a href="/enheter" class="flex-1 bg-white/20 text-white font-black py-4 px-6 rounded-2xl hover:bg-white/30 transition-colors text-center">
+              AVBRYT
+            </a>
+          </div>
+        </form>
+      </div>
+    ) : (
     <div class="grid gap-4 mb-10">
       <!-- LAMPER/LYSPÆRER -->
       <details class="group bg-gradient-to-br from-amber-400 to-yellow-500 rounded-[2rem] overflow-hidden">
@@ -669,6 +827,7 @@ const stockMap = Object.fromEntries(
         </div>
       </details>
     </div>
+    )}
       </div>
     </div>
 
@@ -807,4 +966,10 @@ const stockMap = Object.fromEntries(
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeDrawer();
   });
+  
+  // Opne drawer automatisk ved redigering
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('edit')) {
+    openDrawer();
+  }
 </script>

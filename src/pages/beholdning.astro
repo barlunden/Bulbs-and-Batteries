@@ -132,13 +132,13 @@ if (Astro.request.method === "POST") {
 /// 2. AUTO-GENERERING (Robust versjon)
 const { data: usedItems } = await authedSupabase
   .from("items")
-  .select("type, shape, quantity, required_count, category")
+  .select("type, shape, quantity, required_count, category, dimmable, rechargeable")
   .eq("household_id", householdId)
   .not("type", "is", null);
 
 const { data: existingStock } = await authedSupabase
   .from("stock")
-  .select("type, shape")
+  .select("type, shape, dimmable, rechargeable")
   .eq("household_id", householdId);
 
 if (usedItems && existingStock) {
@@ -157,6 +157,8 @@ if (usedItems && existingStock) {
     const itemCategory = item.category || "bulb";
     const quantity = item.quantity || 1;
     const requiredCount = item.required_count || 1;
+    const itemDimmable = item.dimmable || false;
+    const itemRechargeable = item.rechargeable || false;
 
     // Spesialhandtering for printerblekk: split komma-separerte patronar
     if (itemCategory === "ink" && itemShape.includes(",")) {
@@ -187,11 +189,18 @@ if (usedItems && existingStock) {
       // Vanleg logikk for lamper og batterier
       const exists = existingStock.some(s => 
         s.type?.trim().toUpperCase() === itemType && 
-        (s.shape?.trim() || "") === itemShape
+        (s.shape?.trim() || "") === itemShape &&
+        s.dimmable === itemDimmable &&
+        s.rechargeable === itemRechargeable
       );
 
       if (!exists) {
-        const alreadyInBatch = itemsToCreate.some(i => i.type === itemType && i.shape === itemShape);
+        const alreadyInBatch = itemsToCreate.some(i => 
+          i.type === itemType && 
+          i.shape === itemShape &&
+          i.dimmable === itemDimmable &&
+          i.rechargeable === itemRechargeable
+        );
         
         if (!alreadyInBatch) {
           const totalNeeded = quantity * requiredCount;
@@ -202,6 +211,8 @@ if (usedItems && existingStock) {
             current_count: 0,
             min_threshold: totalNeeded,
             category: itemCategory,
+            dimmable: itemDimmable,
+            rechargeable: itemRechargeable,
             household_id: householdId
           });
         }
