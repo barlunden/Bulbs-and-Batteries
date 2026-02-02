@@ -78,22 +78,58 @@ if (Astro.request.method === "POST") {
     }
 
     else if (action === "create") {
-      await authedSupabase.from("items").insert([{
-        name: data.get("name"),
-        category: data.get("category"),
-        type: data.get("type")?.toString().toUpperCase(),
-        building: data.get("building"),
-        department: data.get("department"),
-        detail: data.get("detail"),
-        required_count: Number(data.get("requiredCount") || 1),
-        quantity: Number(data.get("quantity") || 1),
-        shape: data.get("shape"),
-        color_temp: data.get("colorTemp"),
-        dimmable: data.get("dimmable") === "true",
-        rechargeable: data.get("rechargeable") === "true",
-        notes: data.get("notes"),
-        household_id: householdId,
-      }]);
+      const category = data.get("category")?.toString();
+      
+      // Spesialhandtering for printere med fleire patronar
+      if (category === "ink") {
+        const cartridges = data.getAll("cartridges"); // Array av valde fargar
+        const printerName = data.get("name")?.toString();
+        const inkType = data.get("type")?.toString().toUpperCase();
+        const model = data.get("model")?.toString();
+        const building = data.get("building")?.toString();
+        const department = data.get("department")?.toString();
+        const detail = data.get("detail")?.toString();
+        const quantity = Number(data.get("quantity") || 1);
+        const notes = data.get("notes")?.toString();
+        
+        // Opprett ein item per patron
+        const itemsToInsert = cartridges.map(cartridge => ({
+          name: `${printerName} - ${cartridge}`,
+          category: "ink",
+          type: inkType,
+          shape: cartridge, // Black, Cyan, Magenta, Yellow
+          building,
+          department,
+          detail,
+          required_count: 1, // Ein patron per "item"
+          quantity,
+          color_temp: model, // Lagre modell i color_temp-feltet
+          dimmable: false,
+          rechargeable: false,
+          notes,
+          household_id: householdId,
+        }));
+        
+        await authedSupabase.from("items").insert(itemsToInsert);
+      } else {
+        // Vanleg insert for lamper og batterier
+        await authedSupabase.from("items").insert([{
+          name: data.get("name"),
+          category,
+          type: data.get("type")?.toString().toUpperCase(),
+          building: data.get("building"),
+          department: data.get("department"),
+          detail: data.get("detail"),
+          required_count: Number(data.get("requiredCount") || 1),
+          quantity: Number(data.get("quantity") || 1),
+          shape: data.get("shape"),
+          color_temp: data.get("colorTemp"),
+          dimmable: data.get("dimmable") === "true",
+          rechargeable: data.get("rechargeable") === "true",
+          notes: data.get("notes"),
+          household_id: householdId,
+        }]);
+      }
     }
 
     else if (action === "delete") {
@@ -421,15 +457,36 @@ const stockMap = Object.fromEntries(
               <input type="text" name="name" required placeholder="HP DeskJet i stua" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Blekk-type</label>
-                <input type="text" name="type" required placeholder="HP 302 XL" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            <div>
+              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Blekk-type</label>
+              <input type="text" name="type" required placeholder="HP 302 XL" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+            </div>
+
+            <div>
+              <label class="block text-[9px] font-black uppercase text-purple-900 mb-2 ml-1">Kva patronar brukar printeren?</label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
+                  <input type="checkbox" name="cartridges" value="Black" class="w-5 h-5 rounded accent-purple-600" />
+                  <span class="text-purple-900 font-bold text-sm">⬛ Svart</span>
+                </label>
+                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
+                  <input type="checkbox" name="cartridges" value="Cyan" class="w-5 h-5 rounded accent-purple-600" />
+                  <span class="text-purple-900 font-bold text-sm">🟦 Cyan</span>
+                </label>
+                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
+                  <input type="checkbox" name="cartridges" value="Magenta" class="w-5 h-5 rounded accent-purple-600" />
+                  <span class="text-purple-900 font-bold text-sm">🟪 Magenta</span>
+                </label>
+                <label class="flex items-center gap-3 bg-white/50 p-3 rounded-xl cursor-pointer">
+                  <input type="checkbox" name="cartridges" value="Yellow" class="w-5 h-5 rounded accent-purple-600" />
+                  <span class="text-purple-900 font-bold text-sm">🟨 Gul</span>
+                </label>
               </div>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Modell</label>
-                <input type="text" name="shape" placeholder="DeskJet 3630" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-              </div>
+            </div>
+
+            <div>
+              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Modell (valgfritt)</label>
+              <input type="text" name="model" placeholder="DeskJet 3630" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
             </div>
 
             {advancedMode ? (
