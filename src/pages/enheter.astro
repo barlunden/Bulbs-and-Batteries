@@ -43,6 +43,52 @@ if (Astro.request.method === "POST") {
     console.log("Action:", action);
     console.log("FormData keys:", Array.from(data.keys()));
 
+    if (action === "delete_item") {
+      const itemId = data.get("itemId")?.toString();
+      const type = data.get("itemType")?.toString();
+      const shape = data.get("itemShape")?.toString() || "";
+      const category = data.get("itemCategory")?.toString();
+      
+      console.log("🗑️ Slettar item:", itemId, type, category);
+      
+      // Slett item
+      await authedSupabase
+        .from("items")
+        .delete()
+        .eq("id", itemId)
+        .eq("household_id", householdId);
+      
+      // Slett tilhørande stock
+      if (category === "ink" && shape) {
+        // For printerar: slett stock for kvar patron
+        const cartridges = shape.split(",").map(c => c.trim());
+        for (const cartridge of cartridges) {
+          await authedSupabase
+            .from("stock")
+            .delete()
+            .eq("household_id", householdId)
+            .eq("type", type)
+            .eq("shape", cartridge)
+            .eq("category", "ink");
+        }
+      } else {
+        // For andre: slett stock basert på type/shape
+        let deleteQuery = authedSupabase
+          .from("stock")
+          .delete()
+          .eq("household_id", householdId)
+          .eq("type", type);
+        
+        if (shape && shape !== "null" && shape !== "") {
+          deleteQuery = deleteQuery.eq("shape", shape);
+        }
+        
+        await deleteQuery;
+      }
+      
+      return Astro.redirect(Astro.url.pathname);
+    }
+
     if (action === "replace_item") {
       const itemId = data.get("itemId")?.toString();
       const type = data.get("itemType")?.toString();
@@ -294,7 +340,7 @@ const stockMap = Object.fromEntries(
     <!-- FLOATING ACTION BUTTON -->
     <button 
       id="openDrawer"
-      class="fixed bottom-6 right-6 z-40 bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform duration-200"
+      class="fixed bottom-27 md:bottom-6 right-6 z-40 bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform duration-200"
       aria-label="Registrer utstyr"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
