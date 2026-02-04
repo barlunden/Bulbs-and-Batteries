@@ -33,7 +33,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
       sameSite: "lax", 
       secure: false
     });
-    return redirect("/");
+    return redirect("/dashboard");
   }
 
   return redirect("/login");

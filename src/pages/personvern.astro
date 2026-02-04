@@ -1,0 +1,141 @@
+---
+export const prerender = false;
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Personvern">
+  <div class="max-w-3xl mx-auto px-6 pt-12 pb-32">
+    <header class="mb-12 text-center">
+      <h1 class="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4">
+        Personvern i Fullt Lager
+      </h1>
+      <p class="text-lg text-slate-600 max-w-2xl mx-auto">
+        Din tillit er viktig for oss. Her får du en enkel oversikt over hvordan vi håndterer dine data.
+      </p>
+    </header>
+
+    <article class="prose prose-slate max-w-none space-y-10">
+      <!-- Seksjon 1 -->
+      <section class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-black text-slate-900 mb-4 flex items-center gap-3">
+          <span class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0">1</span>
+          Hvilken informasjon samler vi inn?
+        </h2>
+        <p class="text-slate-600 mb-4">
+          For at Fullt Lager skal fungere, trenger vi kun et minimum av informasjon:
+        </p>
+        <div class="space-y-4">
+          <div class="pl-4 border-l-4 border-indigo-200">
+            <h3 class="font-black text-slate-900 mb-1">Brukerkonto</h3>
+            <p class="text-sm text-slate-600">
+              Vi lagrer din e-postadresse og ditt passord (kryptert) for at du skal kunne logge inn og få tilgang til dine data på tvers av enheter.
+            </p>
+          </div>
+          <div class="pl-4 border-l-4 border-indigo-200">
+            <h3 class="font-black text-slate-900 mb-1">Dine lokasjoner og utstyr</h3>
+            <p class="text-sm text-slate-600">
+              Vi lagrer informasjonen du selv legger inn om dine bygg, rom, lamper, batterier og lagerbeholdning.
+            </p>
+          </div>
+          <div class="pl-4 border-l-4 border-indigo-200">
+            <h3 class="font-black text-slate-900 mb-1">Teknisk info</h3>
+            <p class="text-sm text-slate-600">
+              Som de fleste apper logger vi enkel teknisk informasjon for å kunne rette feil og forbedre brukeropplevelsen.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Seksjon 2 -->
+      <section class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-black text-slate-900 mb-4 flex items-center gap-3">
+          <span class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0">2</span>
+          Hva brukes informasjonen til?
+        </h2>
+        <p class="text-slate-600 mb-4">
+          Vi bruker dataene dine utelukkende til å drive og forbedre appen:
+        </p>
+        <ul class="space-y-2 text-slate-600">
+          <li class="flex items-start gap-2">
+            <span class="text-indigo-600 mt-1">✓</span>
+            <span class="text-sm">Å gi deg oversikt over utstyret ditt.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-indigo-600 mt-1">✓</span>
+            <span class="text-sm">Å generere dine automatiske handlelister.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-indigo-600 mt-1">✓</span>
+            <span class="text-sm">Å sende deg viktige systemvarsler (f.eks. ved glemt passord).</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Seksjon 3 -->
+      <section class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-black text-slate-900 mb-4 flex items-center gap-3">
+          <span class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0">3</span>
+          Deling av data
+        </h2>
+        <p class="text-slate-600">
+          Vi selger aldri dine personopplysninger til tredjeparter. Informasjonen din deles kun med partnere som er nødvendige for å levere tjenesten (f.eks. serverleverandører), og da under strenge sikkerhetskrav.
+        </p>
+      </section>
+
+      <!-- Seksjon 4 -->
+      <section class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-black text-slate-900 mb-4 flex items-center gap-3">
+          <span class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0">4</span>
+          Dine rettigheter
+        </h2>
+        <p class="text-slate-600 mb-4">
+          Du eier dine egne data. Du kan når som helst:
+        </p>
+        <ul class="space-y-2 text-slate-600">
+          <li class="flex items-start gap-2">
+            <span class="text-indigo-600">•</span>
+            <span class="text-sm">Be om innsyn i hva vi har lagret om deg.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-indigo-600">•</span>
+            <span class="text-sm">Endre informasjonen din.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-indigo-600">•</span>
+            <span class="text-sm">Slette kontoen din og alle tilhørende data permanent.</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Seksjon 5 -->
+      <section class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-black text-slate-900 mb-4 flex items-center gap-3">
+          <span class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0">5</span>
+          Sikkerhet
+        </h2>
+        <p class="text-slate-600">
+          Vi bruker bransjestandard kryptering og sikkerhetsprotokoller for å sikre at ingen uvedkommende får tilgang til oversikten over ditt hjem eller ditt lager.
+        </p>
+      </section>
+
+      <!-- Kontakt -->
+      <section class="bg-gradient-to-br from-indigo-50 to-purple-50 p-8 rounded-3xl border border-slate-200">
+        <h2 class="text-xl font-black text-slate-900 mb-3">Har du spørsmål?</h2>
+        <p class="text-slate-600 mb-4">
+          Hvis du har spørsmål om personvern eller ønsker å utøve dine rettigheter, ta kontakt med oss:
+        </p>
+        <p class="text-sm text-slate-600">
+          <strong class="text-slate-900">Comino Web AS</strong><br>
+          E-post: <a href="mailto:post@cominoweb.no" class="text-indigo-600 hover:text-indigo-500 font-bold">post@cominoweb.no</a>
+        </p>
+      </section>
+    </article>
+
+    <!-- Tilbake-lenke -->
+    <div class="mt-12 text-center">
+      <a href="/" class="text-sm text-indigo-600 hover:text-indigo-500 font-bold">
+        ← Tilbake til forsiden
+      </a>
+    </div>
+  </div>
+</Layout>

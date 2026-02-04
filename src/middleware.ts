@@ -2,9 +2,9 @@ import { defineMiddleware } from "astro:middleware";
 import { supabase, createAuthenticatedClient } from "./lib/supabase";
 
 export const onRequest = defineMiddleware(async ({ cookies, url, redirect, locals }, next) => {
-  // 1. Definer opne stiar
-  const authPaths = ["/login", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout", "/api/auth/callback"];
-  const isAuthPath = authPaths.some(path => url.pathname.startsWith(path));
+  // 1. Definer opne stiar (inkludert landing page, personvern, registrering og passord-reset)
+  const authPaths = ["/", "/login", "/registrer", "/personvern", "/glemt-passord", "/tilbakestill-passord", "/api/auth/signin", "/api/auth/signup", "/api/auth/signout", "/api/auth/callback", "/api/auth/reset-password", "/api/auth/update-password"];
+  const isAuthPath = authPaths.some(path => url.pathname === path || url.pathname.startsWith("/api/auth/"));
 
   if (isAuthPath) {
     return next();

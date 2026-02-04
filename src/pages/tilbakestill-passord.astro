@@ -1,5 +1,5 @@
 ---
-// src/pages/login.astro
+// src/pages/tilbakestill-passord.astro
 import Layout from "../layouts/Layout.astro";
 export const prerender = false;
 
@@ -8,15 +8,15 @@ const error = url.searchParams.get("error");
 const message = url.searchParams.get("message");
 ---
 
-<Layout title="Logg inn">
+<Layout title="Tilbakestill passord">
   <div class="max-w-md mx-auto mt-12 md:mt-20">
     <main class="bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100">
       <div class="mb-8">
         <h1 class="text-3xl font-black text-slate-900 tracking-tight mb-2">
-          Velkommen tilbake
+          Nytt passord
         </h1>
         <p class="text-slate-500 italic text-sm">
-          Logg inn for å få tilgang til ditt lager.
+          Skriv inn ditt nye passord under.
         </p>
       </div>
 
@@ -38,20 +38,29 @@ const message = url.searchParams.get("message");
         </div>
       )}
 
-      <form action="/api/auth/signin" method="POST" class="space-y-4">
+      <form action="/api/auth/update-password" method="POST" class="space-y-4">
         <div class="space-y-3">
           <div>
-            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">E-post</label>
-            <input type="email" name="email" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" />
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">Nytt passord</label>
+            <input 
+              type="password" 
+              name="password" 
+              required 
+              minlength="6"
+              class="w-full border-2 border-slate-100 rounded-xl px-4 py-3"
+              placeholder="Minst 6 tegn"
+            />
           </div>
           <div>
-            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">Passord</label>
-            <input type="password" name="password" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" />
-            <div class="mt-2 text-right">
-              <a href="/glemt-passord" class="text-xs text-indigo-600 hover:text-indigo-500 font-bold transition-colors">
-                Glemt passord?
-              </a>
-            </div>
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">Bekreft passord</label>
+            <input 
+              type="password" 
+              name="passwordConfirm" 
+              required 
+              minlength="6"
+              class="w-full border-2 border-slate-100 rounded-xl px-4 py-3"
+              placeholder="Skriv inn same passord igjen"
+            />
           </div>
         </div>
         
@@ -59,22 +68,19 @@ const message = url.searchParams.get("message");
           type="submit" 
           class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-200 transition-all active:scale-[0.98]"
         >
-          LOGG INN
+          OPPDATER PASSORD
         </button>
       </form>
 
-      <div class="mt-6 pt-6 border-t border-slate-200 text-center">
-        <p class="text-sm text-slate-600 mb-3">
-          Har du ikke konto? <a href="/registrer" class="font-bold text-indigo-600 hover:text-indigo-500 transition-colors">Opprett konto her</a>
-        </p>
-        <p class="text-xs text-slate-500 italic">
-          <strong>Skal du dele tilgang med andre?</strong> Be administratoren for bygget om å legge til e-postadressen din i systemet.
-        </p>
-      </div>
-
       <p class="text-[10px] text-center text-slate-400 uppercase font-bold tracking-tighter mt-6">
-        Sikker innlogging via Supabase Auth
+        Sikker oppdatering via Supabase Auth
       </p>
     </main>
+
+    <div class="max-w-md mx-auto mt-8 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+      <p class="text-xs text-slate-600 text-center">
+        <strong class="text-slate-900">Sikkerheit:</strong> Etter at du har oppdatert passordet, blir du logga inn automatisk.
+      </p>
+    </div>
   </div>
 </Layout>

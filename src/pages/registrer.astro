@@ -1,0 +1,90 @@
+---
+// src/pages/registrer.astro
+import Layout from "../layouts/Layout.astro";
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+const error = url.searchParams.get("error");
+const message = url.searchParams.get("message");
+---
+
+<Layout title="Opprett konto">
+  <div class="max-w-md mx-auto mt-12 md:mt-20">
+    <main class="bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100">
+      <div class="mb-8">
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight mb-2">
+          Kom i gang
+        </h1>
+        <p class="text-slate-500 italic text-sm">
+          Opprett konto for å starte med Fullt Lager.
+        </p>
+      </div>
+
+      {error && (
+        <div class="bg-red-50 border-2 border-red-200 p-4 rounded-2xl mb-6">
+          <div class="flex items-center gap-2">
+            <span class="text-red-600 text-xl">⚠️</span>
+            <p class="text-red-800 font-bold text-sm">{decodeURIComponent(error)}</p>
+          </div>
+        </div>
+      )}
+
+      {message && (
+        <div class="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-2xl mb-6">
+          <div class="flex items-center gap-2">
+            <span class="text-emerald-600 text-xl">✓</span>
+            <p class="text-emerald-800 font-bold text-sm">{decodeURIComponent(message)}</p>
+          </div>
+        </div>
+      )}
+
+      <!-- Forventningsavklaring -->
+      <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-100 p-6 rounded-2xl mb-6">
+        <h3 class="font-black text-slate-900 mb-2 flex items-center gap-2">
+          <span class="text-lg">⚡</span>
+          Én app – to moduser
+        </h3>
+        <p class="text-sm text-slate-700 leading-relaxed">
+          Enten du skal ha kontroll på batteriskuffen hjemme eller lyspærene i et helt borettslag, har Fullt Lager verktøyene du trenger. Du velger mellom <strong>Enkel</strong> eller <strong>Avansert</strong> modus når du oppretter ditt første sted.
+        </p>
+      </div>
+
+      <form action="/api/auth/signup" method="POST" class="space-y-4">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">E-post</label>
+            <input type="email" name="email" required class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" placeholder="din@epost.no" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1">Passord</label>
+            <input type="password" name="password" required minlength="6" class="w-full border-2 border-slate-100 rounded-xl px-4 py-3" placeholder="Minst 6 tegn" />
+            <p class="text-[10px] text-slate-400 mt-1 ml-1">Velg et sterkt passord med minst 6 tegn</p>
+          </div>
+        </div>
+        
+        <button 
+          type="submit" 
+          class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-slate-800 transition-all active:scale-[0.98]"
+        >
+          OPPRETT KONTO
+        </button>
+      </form>
+
+      <div class="mt-6 pt-6 border-t border-slate-200 text-center">
+        <p class="text-sm text-slate-600">
+          Har du allerede konto? <a href="/login" class="font-bold text-indigo-600 hover:text-indigo-500 transition-colors">Logg inn her</a>
+        </p>
+      </div>
+
+      <p class="text-[10px] text-center text-slate-400 uppercase font-bold tracking-tighter mt-6">
+        Sikker registrering via Supabase Auth
+      </p>
+    </main>
+    
+    <div class="max-w-md mx-auto mt-8 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+      <p class="text-xs text-slate-600 text-center">
+        <strong class="text-slate-900">Skal du dele tilgang med noen?</strong> Lag din egen bruker først, og be administratoren for bygget om å <strong>legge til din e-postadresse</strong>, så får du automatisk tilgang til deres oversikt.
+      </p>
+    </div>
+  </div>
+</Layout>

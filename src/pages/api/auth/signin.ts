@@ -34,8 +34,8 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
       sameSite: "lax", 
       secure: false
     });
-    console.log("✅ Cookies set, redirecting to /");
-    return redirect("/");
+    console.log("✅ Cookies set, redirecting to /dashboard");
+    return redirect("/dashboard");
   }
 
   console.error("❌ No session returned from Supabase");

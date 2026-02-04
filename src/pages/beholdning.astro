@@ -20,9 +20,10 @@ const { data: household } = await authedSupabase
 
 const householdType = household?.type || "home";
 
-// Bestem categoryFilter fra URL
+// Bestem categoryFilter og shapeFilter fra URL
 const url = new URL(Astro.request.url);
 const categoryFilter = url.searchParams.get("category") || "all";
+const typeFilter = url.searchParams.get("type") || "all";
 
 // Feilmelding frå POST
 let errorMessage: string | null = null;
@@ -257,6 +258,16 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
   dimmable: s.dimmable,
   rechargeable: s.rechargeable,
 }));
+
+// Hent unike typer for valgt kategori (E27, E14, AAA, AA, etc)
+const availableTypes = Array.from(
+  new Set(
+    stockItems
+      .filter((item) => categoryFilter === "all" || item.category === categoryFilter)
+      .map((item) => item.type)
+      .filter(Boolean)
+  )
+).sort();
 ---
 
 <Layout title="Lagerbeholdning">
@@ -361,6 +372,33 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
           </a>
         </div>
       </div>
+
+      {availableTypes.length > 0 && categoryFilter !== "all" && (
+        <div class="mt-3 flex gap-2 flex-wrap">
+          <a 
+            href={`/beholdning?category=${categoryFilter}&type=all`}
+            class={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+              typeFilter === "all" 
+                ? "bg-indigo-500 text-white" 
+                : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            Alle
+          </a>
+          {availableTypes.map((type) => (
+            <a 
+              href={`/beholdning?category=${categoryFilter}&type=${type}`}
+              class={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+                typeFilter === type 
+                  ? "bg-indigo-500 text-white" 
+                  : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              {type}
+            </a>
+          ))}
+        </div>
+      )}
     </header>
 
     {errorMessage && (
@@ -603,7 +641,7 @@ const stockItems: StockItem[] = (dbStock || []).map((s) => ({
               .filter(cat => categoryFilter === "all" || categoryFilter === cat)
               .map((cat) => {
               const itemsInCategory = stockItems.filter(
-                (i) => i.category === cat,
+                (i) => i.category === cat && (typeFilter === "all" || i.type === typeFilter)
               );
               if (itemsInCategory.length === 0) return null;
 

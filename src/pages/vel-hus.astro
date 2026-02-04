@@ -19,7 +19,7 @@ if (Astro.request.method === "POST") {
     const householdId = data.get("householdId")?.toString();
     if (householdId) {
       Astro.cookies.set("active_household_id", householdId, { path: "/", sameSite: "lax" });
-      return Astro.redirect("/");
+      return Astro.redirect("/dashboard");
     }
   }
 
@@ -53,7 +53,7 @@ if (Astro.request.method === "POST") {
         }
 
         Astro.cookies.set("active_household_id", house.id, { path: "/", sameSite: "lax" });
-        return Astro.redirect("/");
+        return Astro.redirect("/dashboard");
       }
     }
   }

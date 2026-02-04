@@ -16,9 +16,9 @@ const householdId = Astro.locals.householdId;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="generator" content={Astro.generator} />
-    <title>{title} | Bulbs & Batteries</title>
+    <title>{title} | Fullt Lager</title>
   </head>
-  <body class="bg-slate-50 pb-32 font-sans antialiased text-slate-900">
+  <body class="bg-slate-50 font-sans antialiased text-slate-900">
     
     <header class="max-w-md mx-auto px-6 py-8 flex justify-between items-start relative">
       <!-- Dekorativ lyseffekt i bakgrunnen -->
@@ -35,16 +35,16 @@ const householdId = Astro.locals.householdId;
         
         <div class="flex flex-col">
           <span class="font-black uppercase tracking-tighter text-base leading-none bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
-            Bulbs & Batteries
+            Fullt Lager
           </span>
-          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1">✨ Rett pære til rett plass</span>
+          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1">✨ Glem det du må huske</span>
         </div>
       </div>
 
       {userEmail && (
         <div class="flex flex-col items-end gap-2">
           <div class="flex flex-col items-end leading-none">
-            <span class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Innlogga</span>
+            <span class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Innlogget</span>
             <span class="text-[10px] font-bold bg-white px-3 py-1.5 rounded-full border border-yellow-200 shadow-sm text-yellow-700 ring-2 ring-yellow-100/50">
               {userEmail.split('@')[0]}
             </span>
@@ -65,6 +65,17 @@ const householdId = Astro.locals.householdId;
     </main>
 
     <Nav />
+
+    <footer class="py-8 text-center border-t border-slate-200 mt-16 bg-white">
+      <div class="mb-3">
+        <a href="/personvern" class="text-xs text-slate-600 hover:text-indigo-600 font-bold transition-colors">
+          Personvern
+        </a>
+      </div>
+      <p class="text-xs text-slate-500">
+        Appen er utviklet av <a href="https://cominoweb.no" target="_blank" rel="noopener noreferrer" class="font-bold text-indigo-600 hover:text-indigo-500 transition-colors">Comino Web AS</a> © {new Date().getFullYear()}
+      </p>
+    </footer>
 
   </body>
 </html>
