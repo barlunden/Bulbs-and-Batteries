@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   const code = url.searchParams.get("code");
+  const next = url.searchParams.get("next"); // For å redirecte til rett side etter callback
 
   if (!code) return redirect("/login");
 
@@ -33,6 +34,12 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
       sameSite: "lax", 
       secure: false
     });
+    
+    // Viss det er ein passord-reset, send til tilbakestill-passord sida
+    if (next) {
+      return redirect(next);
+    }
+    
     return redirect("/dashboard");
   }
 
