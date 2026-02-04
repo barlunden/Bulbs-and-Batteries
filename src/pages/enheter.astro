@@ -14,11 +14,12 @@ const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : su
 // Hent husstandstype for å bestemme default modus
 const { data: household } = await authedSupabase
   .from("households")
-  .select("type")
+  .select("type, name")
   .eq("id", householdId)
   .single();
 
 const householdType = household?.type || "home";
+const householdName = household?.name || "bygget";
 
 // Hent søk og filter-params
 const url = new URL(Astro.request.url);
@@ -378,8 +379,8 @@ const stockMap = Object.fromEntries(
   <main class="max-w-md mx-auto px-6 pt-8 pb-32">
     
     <header class="mb-8">
-      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Bytt & Vedlikehold</h1>
-      <p class="text-slate-500 text-sm italic">Oversikt over alt utstyr i hjemmet.</p>
+      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Bytt og vedlikehold</h1>
+      <p class="text-slate-500 text-sm italic">Oversikt over alt utstyr i <strong>{householdName}</strong>.</p>
       
       <div class="mt-4 flex justify-end">
         <a 
