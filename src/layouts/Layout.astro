@@ -8,6 +8,9 @@ const { title } = Astro.props;
 const user = Astro.locals.user;
 const userEmail = user?.email;
 const householdId = Astro.locals.householdId;
+
+// Bestem kvar logo skal lenke basert på om brukar er innlogga
+const logoLink = user ? "/dashboard" : "/";
 ---
 <!doctype html>
 <html lang="no">
@@ -24,7 +27,7 @@ const householdId = Astro.locals.householdId;
       <!-- Dekorativ lyseffekt i bakgrunnen -->
       <div class="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-amber-300/5 to-transparent rounded-[3rem] blur-2xl -z-10 animate-pulse" style="animation-duration: 3s;"></div>
       
-      <div class="flex items-center gap-3">
+      <a href={logoLink} class="flex items-center gap-3 hover:opacity-80 transition-opacity">
         <!-- Lysende logo med glow-effekt -->
         <div class="relative group">
           <div class="absolute inset-0 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl blur-xl opacity-60 group-hover:opacity-100 transition-opacity"></div>
@@ -39,7 +42,7 @@ const householdId = Astro.locals.householdId;
           </span>
           <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1">✨ Glem det du må huske</span>
         </div>
-      </div>
+      </a>
 
       {userEmail && (
         <div class="flex flex-col items-end gap-2">

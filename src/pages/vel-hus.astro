@@ -77,12 +77,12 @@ if (membershipsError) {
 <Layout title="Velg arbeidsplass">
   <main class="max-w-md mx-auto px-6 pt-12 pb-24">
     <header class="mb-10 text-center">
-      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Hvor skal du jobbe?</h1>
-      <p class="text-slate-500 mt-2 italic text-sm text-balance">Velg en eksisterende husstand eller opprett en ny organisasjon.</p>
+      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Velkommen til Fullt Lager!</h1>
+      <p class="text-slate-500 mt-2 italic text-sm text-balance">Velg et sted fra listen, eller opprett en ny oversikt for å komme i gang.</p>
     </header>
 
     <section class="space-y-4 mb-12">
-      <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-4">Dine tilganger</h2>
+      <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-4">Mine steder</h2>
       
       {memberships && memberships.length > 0 ? (
         memberships.map((m: any) => (
@@ -104,7 +104,7 @@ if (membershipsError) {
         ))
       ) : (
         <div class="p-8 border-2 border-dashed border-slate-200 rounded-[2rem] text-center italic text-slate-400 text-sm">
-          Du er ikke medlem av noen husstand ennå.
+          Du har ikke lagt til eller fått tilgang til noen steder ennå.
         </div>
       )}
     </section>
@@ -114,18 +114,18 @@ if (membershipsError) {
         <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
       </div>
 
-      <h2 class="text-sm font-black uppercase tracking-widest text-indigo-400 mb-6">Start ny organisasjon</h2>
+      <h2 class="text-sm font-black uppercase tracking-widest text-indigo-400 mb-6">Opprett nytt sted</h2>
       
       <form method="POST" class="space-y-4">
         <input type="hidden" name="action" value="create" />
         <div>
-          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-2 ml-1">Namn (f.eks. Pærebråten skule)</label>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-2 ml-1">Navn (f.eks. Hjemme, Hytta eller Storgata 12)</label>
           <input 
             type="text" 
             name="name" 
             required 
             class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Lampevegen 20..."
+            placeholder="Storgata 12"
           />
         </div>
         
@@ -142,8 +142,9 @@ if (membershipsError) {
               />
               <div class="p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer peer-checked:border-indigo-500 peer-checked:bg-indigo-900/30 transition-all">
                 <div class="text-2xl mb-1">🏠</div>
-                <div class="text-xs font-bold">Husstand</div>
-                <div class="text-[9px] text-slate-500">Enkel modus</div>
+                <div class="text-xs font-bold">Privat</div>
+                <div class="text-[10px] uppercase font-semibold">Enkel</div>
+                <div class="text-[9px] text-slate-400">For deg som vil ha kontroll på dingsene hjemme.</div>
               </div>
             </label>
             <label class="relative">
@@ -155,14 +156,15 @@ if (membershipsError) {
               />
               <div class="p-4 bg-slate-800 border-2 border-slate-700 rounded-xl cursor-pointer peer-checked:border-indigo-500 peer-checked:bg-indigo-900/30 transition-all">
                 <div class="text-2xl mb-1">🏢</div>
-                <div class="text-xs font-bold">Vaktmeister</div>
-                <div class="text-[9px] text-slate-500">Avansert modus</div>
+                <div class="text-xs font-bold">Vaktmester</div>
+                <div class="text-[10px] uppercase font-semibold">Avansert</div>
+                <div class="text-[9px] text-slate-400">For deg som administrerer større bygg og lager.</div>
               </div>
             </label>
           </div>
         </div>
         <button type="submit" class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-widest text-xs">
-          Opprett og bli sjef
+          Opprett og kom i gang
         </button>
       </form>
     </section>

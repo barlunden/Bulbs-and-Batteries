@@ -21,7 +21,7 @@ if (Astro.request.method === "POST") {
       .from("households")
       .update({ global_note: newNote })
       .eq("id", householdId);
-    
+
     return Astro.redirect("/");
   }
 }
@@ -36,23 +36,88 @@ const { data: household } = await authedSupabase
 const householdName = household?.name || "Ingen bygg valgt";
 const currentGlobalNote =
   household?.global_note || "Ingen merknader for dette bygget.";
+
+// 2. Hent både items og stock for å sjekke status
+const { data: allItems } = await authedSupabase
+  .from("items")
+  .select("id, type, shape, category, quantity, required_count, dimmable, rechargeable")
+  .eq("household_id", householdId);
+
+const { data: stockItems } = await authedSupabase
+  .from("stock")
+  .select("id, type, shape, current_count, min_threshold, category, dimmable, rechargeable")
+  .eq("household_id", householdId);
+
+// Bygg komplett oversikt over kva som manglar
+// Inkluderer både eksisterande stock OG items som ikkje har stock enno
+const itemsNeedingAttention = [];
+
+// 1. Først: sjekk alle items og finn ut kva som manglar på lager
+if (allItems && allItems.length > 0) {
+  for (const item of allItems) {
+    if (item.category === "ink") {
+      // Spesialhandtering for printere
+      const cartridges = (item.shape || "").split(",").map(c => c.trim()).filter(c => c.length > 0);
+      for (const cartridge of cartridges) {
+        const stockEntry = stockItems?.find(s => 
+          s.type === item.type && 
+          s.shape === cartridge && 
+          s.category === "ink"
+        );
+        
+        const currentCount = stockEntry?.current_count ?? 0;
+        const threshold = stockEntry?.min_threshold ?? item.quantity;
+        
+        if (currentCount <= threshold) {
+          itemsNeedingAttention.push({
+            type: `${item.type} ${cartridge}`,
+            count: currentCount,
+            threshold
+          });
+        }
+      }
+    } else {
+      // Lamper og batterier
+      const stockEntry = stockItems?.find(s => 
+        s.type === item.type &&
+        (s.shape || "") === (item.shape || "") &&
+        s.dimmable === item.dimmable &&
+        s.rechargeable === item.rechargeable &&
+        s.category === item.category
+      );
+      
+      const totalNeeded = (item.quantity || 1) * (item.required_count || 1);
+      const currentCount = stockEntry?.current_count ?? 0;
+      const threshold = stockEntry?.min_threshold ?? totalNeeded;
+      
+      if (currentCount <= threshold) {
+        const displayName = item.shape && item.shape !== "null" && item.shape !== ""
+          ? `${item.type} ${item.shape}`
+          : item.type;
+        
+        itemsNeedingAttention.push({
+          type: displayName,
+          count: currentCount,
+          threshold
+        });
+      }
+    }
+  }
+}
+
+const hasData = allItems && allItems.length > 0;
+const itemsLow = itemsNeedingAttention;
+const allOk = hasData && itemsLow.length === 0;
 ---
 
 <Layout title="Heim">
   <main class="max-w-md mx-auto px-6 pt-12 pb-32">
     <header class="mb-10 relative">
-      <a
-        href="/vel-hus"
-        class="absolute -top-6 right-0 text-[10px] font-black uppercase text-indigo-600 bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm active:scale-95 transition-all"
-      >
-        Bytt bygg ⇄
-      </a>
-
       <div class="flex items-center gap-2 mb-1">
         <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
         <span
           class="text-[10px] font-black uppercase tracking-widest text-slate-400"
-          >Du jobber nå på</span
+          >Valgt sted</span
         >
       </div>
       <h1
@@ -65,14 +130,36 @@ const currentGlobalNote =
         class="mt-4 p-4 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl border border-yellow-200/50"
       >
         <div class="text-sm text-slate-700 leading-relaxed">
-          <p class="font-bold text-amber-700 mb-2">💡 Velkommen!</p>
-          <p>
-            Aldri mer feilkjøp. Husker du om det var E14 eller E27? Krone eller
-            globe? <span class="font-bold text-amber-700">Bulbs & Batteries</span> holder styr på logikken for deg. Vi vet
-            hvilke pærer som passer i hvilke lamper, og gir deg beskjed med en
-            gang lageret begynner å gå tomt. Enkelt for deg, og enkelt for
-            assistenten.
-          </p>
+          {
+            !hasData ? (
+              <>
+                <p class="font-bold text-amber-700 mb-2">💡 Tips</p>
+                <p>
+                  Registrer lampene og dingsene dine én gang, så holder vi
+                  kontroll på sokler og batterityper for deg.
+                </p>
+              </>
+            ) : allOk ? (
+              <>
+                <p class="font-bold text-emerald-700 mb-2">
+                  ✅ Lagerstatus for {householdName}
+                </p>
+                <p>Alt ok! Du har nok av alt på lager.</p>
+              </>
+            ) : (
+              <>
+                <p class="font-bold text-amber-700 mb-2">
+                  ⚠️ Lagerstatus for {householdName}
+                </p>
+                <p class="mb-2">Du mangler:</p>
+                <ul class="list-disc list-inside space-y-1">
+                  {itemsLow.map((item) => (
+                    <li class="font-medium text-amber-800">{item.type}</li>
+                  ))}
+                </ul>
+              </>
+            )
+          }
         </div>
       </div>
     </header>
@@ -97,12 +184,14 @@ const currentGlobalNote =
       <h2
         class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2 italic"
       >
-        ⚠️ Husk på dette her
+        ⚠️ Huskelapp for {householdName}
       </h2>
-      
+
       <details class="group/edit">
         <summary class="list-none cursor-pointer">
-          <p class="text-amber-900 font-medium leading-relaxed italic text-sm mb-3">
+          <p
+            class="text-amber-900 font-medium leading-relaxed italic text-sm mb-3"
+          >
             "{currentGlobalNote}"
           </p>
           <button
@@ -119,8 +208,8 @@ const currentGlobalNote =
             name="global_note"
             class="w-full bg-white border-2 border-amber-300 rounded-xl px-4 py-3 text-amber-900 font-medium outline-none focus:border-amber-500 resize-none"
             rows="3"
-            placeholder="Skriv inn huskelapp..."
-          >{currentGlobalNote}</textarea>
+            placeholder="Skriv inn huskelapp...">{currentGlobalNote}</textarea
+          >
           <div class="flex gap-2">
             <button
               type="submit"
