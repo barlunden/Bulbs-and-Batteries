@@ -6,7 +6,7 @@ interface Props {
   category: "bulb" | "battery" | "ink";
   type: string;
   shape?: string;
-  location?: string; // Deprecated, bruk building/department/detail
+  location?: string;
   building?: string;
   department?: string;
   detail?: string;
@@ -18,7 +18,7 @@ interface Props {
   dimmable?: string | boolean;
   rechargeable?: string | boolean;
   lastReplaced?: string;
-  stockMap?: Record<string, number>; // For å vise stock per patron
+  stockMap?: Record<string, number>;
 }
 
 const { 
@@ -28,15 +28,12 @@ const {
   dimmable, rechargeable, lastReplaced, stockMap
 } = Astro.props;
 
-// Konverterer til boolean i tilfelle dei kjem som strengar frå databasen
 const isRechargeable = rechargeable === true || rechargeable === "true";
 const isDimmable = dimmable === true || dimmable === "true";
 
-// For printerblekk: parse patronar frå shape-feltet
 const isPrinter = category === "ink";
 const cartridges = isPrinter && shape ? shape.split(",").map(c => c.trim()) : [];
 
-// For printerar: hent stock-count per patron
 const cartridgeStocks = isPrinter && stockMap 
   ? cartridges.map(cartridge => ({
       name: cartridge,
@@ -44,17 +41,15 @@ const cartridgeStocks = isPrinter && stockMap
     }))
   : [];
 
-// Sjekk om vi har nok på lager (berre relevant for dingsar som ikkje er oppladbare)
 const itemQuantity = quantity || 1;
 const totalRequired = requiredCount * itemQuantity;
 const isOutOfStock = !isRechargeable && !isPrinter && (inStockCount < totalRequired);
+const isPartiallyInStock = !isOutOfStock && inStockCount < (totalRequired * 2) && !isRechargeable; // Tips om lav beholdning
 
-// Bygg opp lokasjon frå strukturerte felt, eller fall tilbake på gammal location
 const locationDisplay = building || department || detail
   ? [building, department, detail].filter(Boolean).join(" / ")
   : location;
 
-// Formater sist byttet-dato
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return null;
   const date = new Date(dateStr);
@@ -64,9 +59,16 @@ const formatDate = (dateStr?: string) => {
   if (diffDays === 0) return "I dag";
   if (diffDays === 1) return "I går";
   if (diffDays < 7) return `${diffDays} dager siden`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} uker siden`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} måneder siden`;
-  return `${Math.floor(diffDays / 365)} år siden`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return weeks === 1 ? "1 uke siden" : `${weeks} uker siden`;
+  }
+  if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return months === 1 ? "1 måned siden" : `${months} måneder siden`;
+  }
+  const years = Math.floor(diffDays / 365);
+  return years === 1 ? "1 år siden" : `${years} år siden`;
 };
 ---
 
@@ -78,28 +80,10 @@ const formatDate = (dateStr?: string) => {
       : 'border-slate-100 bg-white shadow-sm hover:shadow-md'
 }`}>
   
-  <script define:vars={{ deleteFormId: `delete-form-${id}`, itemName: name, isPrinter }}>
-    const deleteForm = document.getElementById(deleteFormId);
-    
-    deleteForm?.addEventListener('submit', (e) => {
-      const extraInfo = isPrinter 
-        ? '\n\nDette vil også slette alle blekkpatronar for printeren.'
-        : '\n\nDette vil også slette alt lager for denne eininga.';
-      
-      const confirmed = confirm(`🗑️ Er du sikker på at du vil slette «${itemName}»?${extraInfo}`);
-      
-      if (!confirmed) {
-        e.preventDefault();
-        return false;
-      }
-    });
-  </script>
-  
-  <!-- Header med badges og knappar -->
   <div class="flex justify-between items-center mb-4 gap-3">
     <div class="flex items-center gap-2">
       {itemQuantity > 1 && (
-        <div class="bg-blue-500 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-sm">
+        <div class="bg-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm uppercase tracking-wider">
           {itemQuantity} enheter
         </div>
       )}
@@ -107,7 +91,9 @@ const formatDate = (dateStr?: string) => {
         <div class={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-tighter border-2 ${
           isOutOfStock 
             ? 'bg-red-500 border-red-500 text-white animate-pulse' 
-            : 'bg-white border-slate-100 text-slate-600'
+            : isPartiallyInStock
+              ? 'bg-orange-400 border-orange-400 text-white'
+              : 'bg-white border-slate-100 text-slate-600'
         }`}>
           Lager: {inStockCount}/{totalRequired}
         </div>
@@ -118,10 +104,10 @@ const formatDate = (dateStr?: string) => {
       <button 
         type="button"
         onclick={`window.location.href='/enheter?edit=${id}'`}
-        class="w-7 h-7 rounded-full bg-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white transition-all duration-200 flex items-center justify-center shadow-sm hover:shadow-md flex-shrink-0"
-        title="Rediger {name}"
+        class="w-8 h-8 rounded-full bg-blue-50 hover:bg-blue-500 text-blue-600 hover:text-white transition-all duration-200 flex items-center justify-center shadow-sm"
+        title={`Rediger ${name}`}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
         </svg>
       </button>
@@ -129,16 +115,12 @@ const formatDate = (dateStr?: string) => {
       <form method="POST" id={`delete-form-${id}`} class="inline-block">
         <input type="hidden" name="action" value="delete_item" />
         <input type="hidden" name="itemId" value={id} />
-        <input type="hidden" name="itemName" value={name} />
-        <input type="hidden" name="itemType" value={type} />
-        <input type="hidden" name="itemShape" value={shape || ""} />
-        <input type="hidden" name="itemCategory" value={category} />
         <button 
           type="submit"
-          class="w-7 h-7 rounded-full bg-red-100 hover:bg-red-500 text-red-600 hover:text-white transition-all duration-200 flex items-center justify-center group/delete shadow-sm hover:shadow-md flex-shrink-0"
-          title="Slett {name}"
+          class="w-8 h-8 rounded-full bg-red-50 hover:bg-red-500 text-red-600 hover:text-white transition-all duration-200 flex items-center justify-center shadow-sm"
+          title={`Slett ${name}`}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
           </svg>
         </button>
@@ -146,12 +128,11 @@ const formatDate = (dateStr?: string) => {
     </div>
   </div>
   
-  <!-- Lokasjon og namn -->
   <div class="mb-4">
     <div class="flex items-center gap-2 mb-1">
-      <span class="w-2 h-2 rounded-full bg-slate-300"></span>
+      <span class={`w-2 h-2 rounded-full ${isOutOfStock ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
       <p class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-        {locationDisplay || 'Ingen lokasjon satt'}
+        {locationDisplay || 'Lokasjon ikke oppgitt'}
       </p>
     </div>
     <h3 class="text-xl font-black text-slate-900 leading-tight tracking-tight">
@@ -178,11 +159,6 @@ const formatDate = (dateStr?: string) => {
               ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' 
               : 'bg-red-100 text-red-700 border-red-200/50'
           }`}>
-            {item.name === 'Black' && '⬛'} 
-            {item.name === 'Cyan' && '🟦'} 
-            {item.name === 'Magenta' && '🟪'} 
-            {item.name === 'Yellow' && '🟨'} 
-            {item.name === 'Color' && '🌈'} 
             {item.name} ({item.count})
           </span>
         ))}
@@ -214,64 +190,54 @@ const formatDate = (dateStr?: string) => {
     )}
   </div>
 
+  {/* Merknadsfelt */}
   {notes && (
     <div class="mb-6 p-4 bg-slate-50/80 border border-slate-100 rounded-2xl relative">
-      <div class="text-slate-400 absolute -top-2 -left-1 bg-white px-2 italic text-[10px] font-bold">Merknad</div>
+      <div class="text-slate-400 absolute -top-2 -left-1 bg-white px-2 italic text-[10px] font-bold uppercase tracking-wider">Notat</div>
       <p class="text-sm text-slate-600 leading-relaxed italic">"{notes}"</p>
     </div>
   )}
 
+  {/* Sist vedlikeholdt */}
   {lastReplaced && (
     <div class="mb-4 flex items-center gap-2 px-2">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span class="text-xs text-slate-500 font-bold">Sist vedlikehold: {formatDate(lastReplaced)}</span>
+      <span class="text-xs text-slate-500 font-bold uppercase tracking-tight">Sist byttet: {formatDate(lastReplaced)}</span>
     </div>
   )}
 
-  <form method="POST" id={`form-${id}`}>
+  <form method="POST" action="" id={`form-${id}`}>
     <input type="hidden" name="action" value="replace_item" />
     <input type="hidden" name="itemId" value={id} />
-    <input type="hidden" name="itemType" value={type} />
-    <input type="hidden" name="itemShape" value={shape || ""} />
-    <input type="hidden" name="itemCategory" value={category} />
-    <input type="hidden" name="dimmable" value={isDimmable ? "true" : "false"} />
-    <input type="hidden" name="rechargeable" value={isRechargeable ? "true" : "false"} />
     
+    {/* Printer-velger */}
     {isPrinter && cartridges.length > 0 && (
       <div class="mb-4 p-4 bg-purple-50/50 border-2 border-purple-100 rounded-2xl">
         <label class="block text-[9px] font-black uppercase text-purple-700 mb-3 ml-2">
-          🖨️ Hvilke patroner skal byttes?
+          🖨️ Hvilke patroner bytter du nå?
         </label>
         <div class="grid grid-cols-2 gap-2">
           {cartridges.map((cartridge) => (
-            <label class="flex items-center gap-2 bg-white px-3 py-2.5 rounded-xl border-2 border-purple-100 cursor-pointer hover:bg-purple-50 transition-colors">
+            <label class="flex items-center gap-2 bg-white px-3 py-2.5 rounded-xl border-2 border-purple-100 cursor-pointer hover:border-purple-300 transition-colors">
               <input 
                 type="checkbox" 
                 name="cartridges" 
                 value={cartridge}
                 class="w-4 h-4 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
               />
-              <span class="text-xs font-bold text-slate-700">
-                {cartridge === 'Black' && '⬛'} 
-                {cartridge === 'Cyan' && '🟦'} 
-                {cartridge === 'Magenta' && '🟪'} 
-                {cartridge === 'Yellow' && '🟨'} 
-                {cartridge === 'Color' && '🌈'} 
-                {cartridge}
-              </span>
+              <span class="text-xs font-bold text-slate-700">{cartridge}</span>
             </label>
           ))}
         </div>
       </div>
     )}
     
+    {/* Antall-velger for pærer/batterier */}
     {!isPrinter && !isRechargeable && requiredCount > 1 && (
       <div class="mb-3">
         <label class="block text-[9px] font-black uppercase text-slate-500 mb-2 ml-2">
-          {category === "bulb" 
-            ? `💡 Hvor mange pærer bytter du? (av ${requiredCount} i lampa)`
-            : `🔋 Hvor mange batterier bytter du? (av ${requiredCount} i enheten)`
-          }
+          {category === "bulb" ? "💡 Antall pærer som byttes" : "🔋 Antall batterier som byttes"}
+          <span class="text-indigo-400 ml-1">(av {requiredCount} totalt)</span>
         </label>
         <input 
           type="number" 
@@ -284,10 +250,12 @@ const formatDate = (dateStr?: string) => {
       </div>
     )}
     
-    {itemQuantity > 1 && !isRechargeable && !isPrinter ? (
+    {/* Multi-enhet velger */}
+    {itemQuantity > 1 && !isRechargeable && !isPrinter && (
       <div class="mb-3">
         <label class="block text-[9px] font-black uppercase text-slate-500 mb-2 ml-2">
-         Hvor mange enheter utfører du bytte på? (av {itemQuantity} totalt)
+         Antall enheter å utføre bytte på
+         <span class="text-indigo-400 ml-1">(av {itemQuantity})</span>
         </label>
         <input 
           type="number" 
@@ -298,69 +266,39 @@ const formatDate = (dateStr?: string) => {
           class="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold outline-none focus:border-indigo-400"
         />
       </div>
-    ) : !isPrinter ? (
-      <input type="hidden" name="replaceQuantity" value={isRechargeable ? 0 : 1} />
-    ) : null}
+    )}
     
     <div class="flex gap-2">
       <button 
-        type="submit" 
-        disabled={isPrinter ? false : isOutOfStock}
+        type="submit"
         class={`flex-[4] font-black py-4 rounded-[1.5rem] transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.97] ${
           isPrinter 
-            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-200' 
+            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg' 
             : isRechargeable 
-              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-200' 
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg' 
               : isOutOfStock 
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-100' 
-                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-100'
+                ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg' 
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg'
         }`}
       >
-        {isPrinter ? (
-          <>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-            BYTT
-          </>
-        ) : isRechargeable ? (
-          <>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h5l2 2h9a2 2 0 0 1 2 2v10"/><path d="M16 22l2 2 4-4"/></svg>
-            LADET
-          </>
-        ) : (
-          <>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-            BYTT
-          </>
-        )}
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>
+        </svg>
+        {isRechargeable ? 'LADET' : 'BYTT'}
       </button>
 
       {!isPrinter && !isRechargeable && (
         <a 
           href="/beholdning"
-          class="flex-[1] font-black py-4 rounded-[1.5rem] transition-all duration-200 flex flex-col items-center justify-center gap-0.5 active:scale-[0.97] bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-200"
-          title="Gå til innkjøpsliste"
+          class="flex-[1.2] font-black py-4 rounded-[1.5rem] transition-all duration-200 flex flex-col items-center justify-center gap-0.5 active:scale-[0.97] bg-red-500 hover:bg-red-600 text-white shadow-lg"
+          title="Se handleliste"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-          <span class="text-[9px] leading-none">SJEKK</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+          </svg>
+          <span class="text-[9px] leading-none uppercase">Behov</span>
         </a>
       )}
     </div>
   </form>
 </div>
-
-{isPrinter && (
-  <script define:vars={{ formId: `form-${id}`, itemName: name }}>
-    const form = document.getElementById(formId);
-    
-    form?.addEventListener('submit', (e) => {
-      const formData = new FormData(form);
-      const selectedCartridges = formData.getAll('cartridges');
-      
-      if (selectedCartridges.length === 0) {
-        e.preventDefault();
-        alert('⚠️ Du må velge minst ein patron å bytte!');
-        return false;
-      }
-    });
-  </script>
-)}

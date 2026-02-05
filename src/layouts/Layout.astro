@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css"
 import Nav from "../components/Nav.astro";
+import ToastProvider from "../components/ToastProvider";
 
 const { title } = Astro.props;
 
@@ -22,6 +23,8 @@ const logoLink = user ? "/dashboard" : "/";
     <title>{title} | Fullt Lager</title>
   </head>
   <body class="bg-slate-50 font-sans antialiased text-slate-900">
+    
+    <ToastProvider client:load />
     
     <header class="max-w-md mx-auto px-6 py-8 flex justify-between items-start relative">
       <!-- Dekorativ lyseffekt i bakgrunnen -->

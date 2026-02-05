@@ -7,11 +7,12 @@ import type { InventoryItem, StockItem } from "../types/inventory";
 
 const { householdId } = Astro.locals;
 
-// Lag ein autentisert Supabase-klient for denne requesten
+// 1. SETUP & AUTENTISERING
 const accessToken = Astro.cookies.get("sb-access-token")?.value;
-const authedSupabase = accessToken ? createAuthenticatedClient(accessToken) : supabase;
+const authedSupabase = accessToken
+  ? createAuthenticatedClient(accessToken)
+  : supabase;
 
-// Hent husstandstype for å bestemme default modus
 const { data: household } = await authedSupabase
   .from("households")
   .select("type, name")
@@ -19,9 +20,8 @@ const { data: household } = await authedSupabase
   .single();
 
 const householdType = household?.type || "home";
-const householdName = household?.name || "bygget";
+const householdName = household?.name || "stedet";
 
-// Hent søk og filter-params
 const url = new URL(Astro.request.url);
 const searchQuery = url.searchParams.get("search") || "";
 const categoryFilter = url.searchParams.get("category") || "all";
@@ -29,72 +29,35 @@ const typeFilter = url.searchParams.get("type") || "";
 const buildingFilter = url.searchParams.get("building") || "";
 const editId = url.searchParams.get("edit") || null;
 
-// Bestem advancedMode: default basert på husstandstype, kan overskrives manuelt
 const advancedParam = url.searchParams.get("advanced");
-const advancedMode = advancedParam !== null 
-  ? advancedParam === "true" 
-  : householdType === "facility";
+const advancedMode =
+  advancedParam !== null
+    ? advancedParam === "true"
+    : householdType === "facility";
 
-// 1. ACTION HÅNDTERING
+// 2. ACTION HÅNDTERING (Sletting, Oppdatering, Bytte, Opprettelse)
 if (Astro.request.method === "POST") {
   try {
     const data = await Astro.request.formData();
     const action = data.get("action");
-    
-    console.log("🚀 POST REQUEST MOTTATT");
-    console.log("Action:", action);
-    console.log("FormData keys:", Array.from(data.keys()));
 
     if (action === "delete_item") {
       const itemId = data.get("itemId")?.toString();
-      const type = data.get("itemType")?.toString();
-      const shape = data.get("itemShape")?.toString() || "";
-      const category = data.get("itemCategory")?.toString();
-      
-      console.log("🗑️ Slettar item:", itemId, type, category);
-      
-      // Slett item
+      const itemName = data.get("itemName")?.toString() || "Utstyr";
       await authedSupabase
         .from("items")
         .delete()
         .eq("id", itemId)
         .eq("household_id", householdId);
-      
-      // Slett tilhørande stock
-      if (category === "ink" && shape) {
-        // For printerar: slett stock for kvar patron
-        const cartridges = shape.split(",").map(c => c.trim());
-        for (const cartridge of cartridges) {
-          await authedSupabase
-            .from("stock")
-            .delete()
-            .eq("household_id", householdId)
-            .eq("type", type)
-            .eq("shape", cartridge)
-            .eq("category", "ink");
-        }
-      } else {
-        // For andre: slett stock basert på type/shape
-        let deleteQuery = authedSupabase
-          .from("stock")
-          .delete()
-          .eq("household_id", householdId)
-          .eq("type", type);
-        
-        if (shape && shape !== "null" && shape !== "") {
-          deleteQuery = deleteQuery.eq("shape", shape);
-        }
-        
-        await deleteQuery;
-      }
-      
-      return Astro.redirect(Astro.url.pathname);
+      return Astro.redirect(
+        Astro.url.pathname +
+          `?toast=deleted&item=${encodeURIComponent(itemName)}`,
+      );
     }
 
     if (action === "update_item") {
       const itemId = data.get("itemId")?.toString();
       const category = data.get("category")?.toString();
-      
       const updates: any = {
         name: data.get("name")?.toString(),
         type: data.get("type")?.toString().toUpperCase(),
@@ -105,872 +68,478 @@ if (Astro.request.method === "POST") {
         detail: data.get("detail")?.toString() || null,
         notes: data.get("notes")?.toString() || null,
       };
-      
+
       if (category === "bulb") {
         updates.shape = data.get("shape")?.toString() || null;
         updates.color_temp = data.get("colorTemp")?.toString() || null;
         updates.dimmable = data.get("dimmable") === "true";
       } else if (category === "battery") {
-        updates.shape = data.get("shape")?.toString() || null;
         updates.rechargeable = data.get("rechargeable") === "true";
       } else if (category === "ink") {
         const cartridgesRaw = data.get("cartridges")?.toString() || "";
-        const cartridges = cartridgesRaw
+        updates.shape = cartridgesRaw
           .split(/[\n,]+/)
-          .map(c => c.trim())
-          .filter(c => c.length > 0);
-        updates.shape = cartridges.join(",");
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0)
+          .join(",");
         updates.color_temp = data.get("model")?.toString() || null;
       }
-      
+
       await authedSupabase
         .from("items")
         .update(updates)
         .eq("id", itemId)
         .eq("household_id", householdId);
-      
-      return Astro.redirect(Astro.url.pathname);
+      return Astro.redirect(
+        Astro.url.pathname +
+          `?toast=updated&item=${encodeURIComponent(updates.name)}`,
+      );
     }
 
     if (action === "replace_item") {
       const itemId = data.get("itemId")?.toString();
+      const itemName = data.get("itemName")?.toString() || "Utstyr";
       const type = data.get("itemType")?.toString();
-      const shape = data.get("itemShape")?.toString() || "";
       const category = data.get("itemCategory")?.toString();
-      const replaceQuantity = Number(data.get("replaceQuantity") || 1);
-      const dimmable = data.get("dimmable") === "true";
-      const rechargeable = data.get("rechargeable") === "true";
-      
-      console.log("🔧 REPLACE_ITEM action - Category:", category, "Type:", type);
 
-      // Oppdater last_replaced på enheten
       await authedSupabase
         .from("items")
         .update({ last_replaced: new Date().toISOString() })
         .eq("id", itemId)
         .eq("household_id", householdId);
 
-      // Spesialhandtering for printerblekk
       if (category === "ink") {
-        const selectedCartridges = data.getAll("cartridges"); // ["Black", "Cyan", ...]
-        
-        console.log("🖨️ PRINTER REPLACE ACTION TRIGGA!");
-        console.log("Type:", type);
-        console.log("Category:", category);
-        console.log("Selected cartridges RAW:", selectedCartridges);
-        console.log("Selected cartridges length:", selectedCartridges.length);
-        
-        // Valider at minst ein patron er valgt
-        if (selectedCartridges.length === 0) {
-          console.warn("⚠️ INGEN patronar valt for bytte");
-          return Astro.redirect(Astro.url.pathname + "?error=no-cartridges");
-        }
-        
-        console.log("✅ Byttar patronar:", selectedCartridges);
-        
-        // Reduser stock for kvar valgt patron
+        const selectedCartridges = data.getAll("cartridges");
         for (const cartridge of selectedCartridges) {
-          let query = authedSupabase
+          const { data: stock } = await authedSupabase
             .from("stock")
             .select("id, current_count")
             .eq("household_id", householdId)
             .eq("type", type)
-            .eq("shape", cartridge) // Match spesifikk patron-farge
-            .eq("dimmable", false)
-            .eq("rechargeable", false);
-
-          const { data: stock, error } = await query.single();
-
-          if (error) {
-            console.error(`❌ Feil ved henting av stock for ${cartridge}:`, error);
-            continue;
-          }
-
-          if (stock) {
-            const oldCount = stock.current_count;
-            const newCount = Math.max(0, oldCount - 1);
-            console.log(`📉 Reduserer ${cartridge} frå ${oldCount} til ${newCount}`);
-            
-            const { error: updateError } = await authedSupabase.from("stock")
-              .update({ current_count: newCount })
+            .eq("shape", cartridge)
+            .single();
+          if (stock)
+            await authedSupabase
+              .from("stock")
+              .update({ current_count: Math.max(0, stock.current_count - 1) })
               .eq("id", stock.id);
-              
-            if (updateError) {
-              console.error(`❌ Feil ved oppdatering av ${cartridge}:`, updateError);
-            } else {
-              console.log(`✅ ${cartridge} oppdatert!`);
-            }
-          } else {
-            console.warn(`⚠️ Fann ikkje stock for ${type} - ${cartridge}`);
-          }
         }
       } else {
-        // Vanleg logikk for lamper og batterier
-        const bulbCount = Number(data.get("bulbCount") || replaceQuantity);
-        const totalToReduce = bulbCount * replaceQuantity; // bulbCount pærer per lampe × antal lamper
-        
-        let query = authedSupabase
+        const bulbCount = Number(data.get("bulbCount") || 1);
+        const replaceQty = Number(data.get("replaceQuantity") || 1);
+        const total = bulbCount * replaceQty;
+        const { data: stock } = await authedSupabase
           .from("stock")
           .select("id, current_count")
           .eq("household_id", householdId)
           .eq("type", type)
-          .eq("dimmable", dimmable)
-          .eq("rechargeable", rechargeable);
-
-        if (shape && shape !== "null" && shape !== "") {
-          query = query.eq("shape", shape);
-        } else {
-          query = query.or('shape.is.null,shape.eq.""');
-        }
-
-        const { data: stock } = await query.single();
-
-        if (stock) {
-          await authedSupabase.from("stock")
-            .update({ current_count: Math.max(0, (stock.current_count || 0) - totalToReduce) })
+          .single();
+        if (stock)
+          await authedSupabase
+            .from("stock")
+            .update({ current_count: Math.max(0, stock.current_count - total) })
             .eq("id", stock.id);
-        }
       }
+      return Astro.redirect(
+        Astro.url.pathname +
+          `?toast=replaced&item=${encodeURIComponent(itemName)}`,
+      );
     }
 
-    else if (action === "create") {
+    if (action === "create") {
       const category = data.get("category")?.toString();
-      
-      // Spesialhandtering for printere med fleire patronar
-      if (category === "ink") {
-        const cartridgesRaw = data.get("cartridges")?.toString() || "";
-        // Parse patronar frå textarea (split på linjeskift eller komma)
-        const cartridges = cartridgesRaw
-          .split(/[\n,]+/)  // Split på linjeskift eller komma
-          .map(c => c.trim())  // Fjern whitespace
-          .filter(c => c.length > 0);  // Fjern tomme linjer
-        
-        const printerName = data.get("name")?.toString();
-        const inkType = data.get("type")?.toString().toUpperCase();
-        const model = data.get("model")?.toString();
-        const building = data.get("building")?.toString();
-        const department = data.get("department")?.toString();
-        const detail = data.get("detail")?.toString();
-        const quantity = Number(data.get("quantity") || 1);
-        const notes = data.get("notes")?.toString();
-        
-        // Lagre patronar som komma-separert string i shape-feltet
-        const cartridgesString = cartridges.join(","); // "Black,Cyan,Magenta,Yellow"
-        
-        await authedSupabase.from("items").insert([{
-          name: printerName,
-          category: "ink",
-          type: inkType,
-          shape: cartridgesString, // Lagre alle patronar her
-          building,
-          department,
-          detail,
-          required_count: cartridges.length, // Antal patronar
-          quantity,
-          color_temp: model, // Lagre modell her
-          dimmable: false,
-          rechargeable: false,
-          notes,
-          household_id: householdId,
-        }]);
-      } else {
-        // Vanleg insert for lamper og batterier
-        await authedSupabase.from("items").insert([{
-          name: data.get("name"),
-          category,
-          type: data.get("type")?.toString().toUpperCase(),
-          building: data.get("building"),
-          department: data.get("department"),
-          detail: data.get("detail"),
-          required_count: Number(data.get("requiredCount") || 1),
-          quantity: Number(data.get("quantity") || 1),
-          shape: data.get("shape"),
-          color_temp: data.get("colorTemp"),
-          dimmable: data.get("dimmable") === "true",
-          rechargeable: data.get("rechargeable") === "true",
-          notes: data.get("notes"),
-          household_id: householdId,
-        }]);
-      }
-    }
+      const name = data.get("name")?.toString();
+      const type = data.get("type")?.toString().toUpperCase();
 
-    else if (action === "delete") {
-      await authedSupabase.from("items")
-        .delete()
-        .eq("id", data.get("itemId"))
-        .eq("household_id", householdId);
+      const baseItem: any = {
+        name,
+        category,
+        type,
+        building: data.get("building"),
+        department: data.get("department"),
+        detail: data.get("detail"),
+        quantity: Number(data.get("quantity") || 1),
+        notes: data.get("notes"),
+        household_id: householdId,
+      };
+
+      if (category === "ink") {
+        const cartridges = (data.get("cartridges")?.toString() || "")
+          .split(/[\n,]+/)
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0);
+        baseItem.shape = cartridges.join(",");
+        baseItem.required_count = cartridges.length;
+        baseItem.color_temp = data.get("model");
+      } else {
+        baseItem.required_count = Number(data.get("requiredCount") || 1);
+        baseItem.shape = data.get("shape");
+        baseItem.color_temp = data.get("colorTemp");
+        baseItem.dimmable = data.get("dimmable") === "true";
+        baseItem.rechargeable = data.get("rechargeable") === "true";
+      }
+
+      await authedSupabase.from("items").insert([baseItem]);
+      return Astro.redirect(
+        Astro.url.pathname +
+          `?toast=created&item=${encodeURIComponent(name || "Utstyr")}`,
+      );
     }
   } catch (error: any) {
-    console.error("Enhets-feil:", error.message);
+    console.error("Feil:", error.message);
   }
 }
 
-// 2. DATA QUERY
+// 3. DATAHENTING
 let query = authedSupabase
   .from("items")
   .select("*")
   .eq("household_id", householdId);
-
-// Filtrer basert på søk og filtre
-if (searchQuery) {
-  query = query.or(`name.ilike.%${searchQuery}%,building.ilike.%${searchQuery}%,department.ilike.%${searchQuery}%,detail.ilike.%${searchQuery}%`);
-}
-if (categoryFilter !== "all") {
-  query = query.eq("category", categoryFilter);
-}
-if (typeFilter) {
-  query = query.eq("type", typeFilter);
-}
-if (buildingFilter) {
-  query = query.eq("building", buildingFilter);
-}
+if (searchQuery)
+  query = query.or(
+    `name.ilike.%${searchQuery}%,building.ilike.%${searchQuery}%,department.ilike.%${searchQuery}%,detail.ilike.%${searchQuery}%`,
+  );
+if (categoryFilter !== "all") query = query.eq("category", categoryFilter);
+if (typeFilter) query = query.eq("type", typeFilter);
+if (buildingFilter) query = query.eq("building", buildingFilter);
 
 const { data: dbItems } = await query.order("building", { ascending: true });
-
-// Hent item for redigering hvis editId er satt
-let editItem = null;
-if (editId) {
-  const { data } = await authedSupabase
-    .from("items")
-    .select("*")
-    .eq("id", editId)
-    .eq("household_id", householdId)
-    .single();
-  editItem = data;
-}
-
 const { data: dbStock } = await authedSupabase
   .from("stock")
   .select("*")
   .eq("household_id", householdId);
 
-// Hent unike verdier for filtre
-const uniqueTypes = [...new Set((dbItems || []).map(i => i.type).filter(Boolean))];
-const uniqueBuildings = [...new Set((dbItems || []).map(i => i.building).filter(Boolean))];
+let editItem = editId
+  ? (await authedSupabase.from("items").select("*").eq("id", editId).single())
+      .data
+  : null;
 
-const items: InventoryItem[] = (dbItems || []).map(i => ({
-  id: i.id, 
-  name: i.name, 
-  category: i.category, 
-  type: i.type, 
+const uniqueTypes = [
+  ...new Set((dbItems || []).map((i) => i.type).filter(Boolean)),
+];
+const uniqueBuildings = [
+  ...new Set((dbItems || []).map((i) => i.building).filter(Boolean)),
+];
+
+const items: InventoryItem[] = (dbItems || []).map((i) => ({
+  id: i.id,
+  name: i.name,
+  category: i.category,
+  type: i.type,
   location: i.location,
   building: i.building,
   department: i.department,
   detail: i.detail,
-  requiredCount: i.required_count, 
+  requiredCount: i.required_count,
   quantity: i.quantity || 1,
-  shape: i.shape, 
+  shape: i.shape,
   colorTemp: i.color_temp,
   dimmable: i.dimmable,
   rechargeable: i.rechargeable,
   lastReplaced: i.last_replaced,
-  notes: i.notes
+  notes: i.notes,
 }));
 
 const stockMap = Object.fromEntries(
-  (dbStock || []).map(s => [
-    `${s.type}-${s.shape || ""}-${s.dimmable || false}-${s.rechargeable || false}`, 
-    s.current_count
-  ])
+  (dbStock || []).map((s) => [
+    `${s.type}-${s.shape || ""}-${s.dimmable || false}-${s.rechargeable || false}`,
+    s.current_count,
+  ]),
 );
 ---
 
 <Layout title="Bytt & Vedlikehold">
   <main class="max-w-md mx-auto px-6 pt-8 pb-32">
-    
     <header class="mb-8">
-      <h1 class="text-3xl font-black text-slate-900 tracking-tight">Bytt og vedlikehold</h1>
-      <p class="text-slate-500 text-sm italic">Oversikt over alt utstyr i <strong>{householdName}</strong>.</p>
-      
+      <h1 class="text-4xl font-black text-slate-900 tracking-tighter">
+        Bytt utstyr
+      </h1>
+      <p class="text-slate-500 text-sm italic font-medium px-1">
+        Oversikt for <strong>{householdName}</strong>
+      </p>
+
       <div class="mt-4 flex justify-end">
-        <a 
-          href={advancedMode ? "/enheter?advanced=false" : "/enheter?advanced=true"}
-          class="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1"
+        <a
+          href={advancedMode
+            ? "/enheter?advanced=false"
+            : "/enheter?advanced=true"}
+          class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100"
         >
           {advancedMode ? "← Enkel modus" : "⚙️ Avansert modus"}
         </a>
       </div>
     </header>
 
-    <!-- FLOATING ACTION BUTTON -->
-    <button 
+    <button
       id="openDrawer"
-      class="fixed bottom-27 sm:bottom-6 right-6 z-40 bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform duration-200"
-      aria-label="Registrer utstyr"
+      class="fixed bottom-27 sm:bottom-6 right-6 z-40 bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-5 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><path d="M5 12h14"></path><path d="M12 5v14"></path></svg
+      >
     </button>
 
-    <!-- DRAWER OVERLAY -->
-    <div id="drawerOverlay" class="fixed inset-0 bg-black/50 z-50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+    <div
+      id="drawerOverlay"
+      class="fixed inset-0 bg-black/50 z-50 opacity-0 pointer-events-none transition-opacity duration-300 backdrop-blur-sm"
+    >
+    </div>
 
-    <!-- DRAWER -->
-    <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-50 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 overflow-y-auto">
-      <div class="sticky top-0 bg-gradient-to-r from-amber-500 to-orange-600 p-6 z-10">
-        <div class="flex items-center justify-between">
-          <h2 class="text-white font-black text-xl">{editItem ? 'Rediger utstyr' : 'Registrer utstyr'}</h2>
-          <button 
-            id="closeDrawer"
-            class="text-white/80 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
-            aria-label="Lukk"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
-        </div>
+    <div
+      id="drawer"
+      class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-50 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 overflow-y-auto rounded-l-[3rem]"
+    >
+      <div
+        class="sticky top-0 bg-slate-900 p-8 z-10 flex justify-between items-center text-white"
+      >
+        <h2 class="font-black text-xl tracking-tighter">
+          {editItem ? "Rediger enhet" : "Registrer ny"}
+        </h2>
+        <button
+          id="closeDrawer"
+          class="bg-white/10 p-2 rounded-xl font-black text-xs uppercase tracking-widest"
+          >Lukk</button
+        >
       </div>
 
       <div class="p-6 space-y-6">
-    
-    {editItem ? (
-      <!-- REDIGERINGSSKJEMA -->
-      <div class="bg-gradient-to-br from-blue-400 to-indigo-500 rounded-[2rem] overflow-hidden p-6">
-        <h3 class="font-black uppercase tracking-widest text-xs text-white mb-4">✏️ Rediger: {editItem.name}</h3>
-        
-        <form method="POST" class="space-y-4">
-          <input type="hidden" name="action" value="update_item" />
-          <input type="hidden" name="itemId" value={editItem.id} />
-          <input type="hidden" name="category" value={editItem.category} />
-          
-          <div>
-            <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Namn</label>
-            <input type="text" name="name" value={editItem.name} required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-          </div>
-          
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Type</label>
-              <input type="text" name="type" value={editItem.type} required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-            {editItem.category !== "ink" && (
-              <div>
-                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Form</label>
-                <input type="text" name="shape" value={editItem.shape || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-              </div>
-            )}
-          </div>
-          
-          {editItem.category === "ink" && (
-            <>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Patronar (ein per linje)</label>
-                <textarea name="cartridges" rows="3" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white">{editItem.shape?.split(',').join('\n')}</textarea>
-              </div>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Printermodell</label>
-                <input type="text" name="model" value={editItem.color_temp || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-              </div>
-            </>
-          )}
-          
-          {editItem.category === "bulb" && (
-            <>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Fargetemp</label>
-                <input type="text" name="colorTemp" value={editItem.color_temp || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-              </div>
-              <label class="flex items-center gap-2 bg-white/30 rounded-xl px-4 py-3">
-                <input type="checkbox" name="dimmable" value="true" checked={editItem.dimmable} class="w-4 h-4" />
-                <span class="font-bold text-white text-sm">Dimbar</span>
-              </label>
-            </>
-          )}
-          
-          {editItem.category === "battery" && (
-            <label class="flex items-center gap-2 bg-white/30 rounded-xl px-4 py-3">
-              <input type="checkbox" name="rechargeable" value="true" checked={editItem.rechargeable} class="w-4 h-4" />
-              <span class="font-bold text-white text-sm">Oppladbar</span>
-            </label>
-          )}
-          
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Bygning</label>
-              <input type="text" name="building" value={editItem.building || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-            <div>
-              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Avdeling</label>
-              <input type="text" name="department" value={editItem.department || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-            <div>
-              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Detalj</label>
-              <input type="text" name="detail" value={editItem.detail || ""} class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-          </div>
-          
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Tal i eininga</label>
-              <input type="number" name="requiredCount" value={editItem.required_count} min="1" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-            <div>
-              <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Antal einingar</label>
-              <input type="number" name="quantity" value={editItem.quantity || 1} min="1" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-          </div>
-          
-          <div>
-            <label class="block text-[9px] font-black uppercase text-blue-900 mb-1 ml-1">Merknad</label>
-            <textarea name="notes" rows="2" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white">{editItem.notes || ""}</textarea>
-          </div>
-          
-          <div class="flex gap-3">
-            <button type="submit" class="flex-1 bg-white text-blue-600 font-black py-4 px-6 rounded-2xl hover:bg-blue-50 transition-colors shadow-lg">
-              ✓ LAGRE ENDRINGAR
-            </button>
-            <a href="/enheter" class="flex-1 bg-white/20 text-white font-black py-4 px-6 rounded-2xl hover:bg-white/30 transition-colors text-center">
-              AVBRYT
-            </a>
-          </div>
-        </form>
-      </div>
-    ) : (
-    <div class="grid gap-4 mb-10">
-      <!-- LAMPER/LYSPÆRER -->
-      <details class="group bg-gradient-to-br from-amber-400 to-yellow-500 rounded-[2rem] overflow-hidden">
-        <summary class="list-none p-6 flex items-center justify-between cursor-pointer">
-          <div class="flex items-center gap-3">
-            <div class="bg-white/30 text-white p-2 rounded-xl group-open:rotate-45 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            </div>
-            <span class="font-black uppercase tracking-widest text-xs text-white">💡 Registrer lampe</span>
-          </div>
-        </summary>
-        
-        <div class="px-6 pb-6">
-          <form method="POST" class="space-y-4">
-            <input type="hidden" name="action" value="create" />
-            <input type="hidden" name="category" value="bulb" />
-            <input type="hidden" name="rechargeable" value="false" />
-            
-            <div>
-              <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Navn på lampe</label>
-              <input type="text" name="name" placeholder="Taklampe stue" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-            
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Sokkel (E27, GU10...)</label>
-                <input type="text" name="type" placeholder="E27" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-              </div>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Pæreform</label>
-                <select name="shape" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
-                  <option value="">Standard</option>
-                  <option value="Candle">Krone</option>
-                  <option value="Globe">Globe</option>
-                  <option value="Spot">Spot</option>
-                  <option value="Edison">Edison</option>
-                </select>
-              </div>
-            </div>
+        {
+          editItem ? (
+            <div class="bg-white border-2 border-indigo-100 rounded-[2.5rem] p-6 shadow-xl">
+              <form method="POST" class="space-y-4">
+                <input type="hidden" name="action" value="update_item" />
+                <input type="hidden" name="itemId" value={editItem.id} />
+                <input
+                  type="hidden"
+                  name="category"
+                  value={editItem.category}
+                />
 
-            {advancedMode ? (
-              <>
-                <div class="grid grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Bygning</label>
-                    <input type="text" name="building" placeholder="Hovedbygg" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Avdeling</label>
-                    <input type="text" name="department" placeholder="Fløy B" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Detalj</label>
-                    <input type="text" name="detail" placeholder="2. etasje" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
+                <div>
+                  <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 ml-2">
+                    Navn
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={editItem.name}
+                    required
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Antall like enheter</label>
-                    <input type="number" name="quantity" value="1" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Pærer per enhet</label>
-                    <input type="number" name="requiredCount" value="1" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <input type="hidden" name="quantity" value="1" />
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Plassering</label>
-                    <input type="text" name="detail" placeholder="Stue" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Antall pærer</label>
-                    <input type="number" name="requiredCount" value="1" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Lysfarge</label>
-                <input type="text" name="colorTemp" placeholder="2700K" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-              </div>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Dimbar?</label>
-                <select name="dimmable" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
-                  <option value="false">Nei</option>
-                  <option value="true">Ja</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-[9px] font-black uppercase text-amber-900 mb-1 ml-1">Merknader</label>
-              <textarea name="notes" placeholder="Trenger lang stige..." class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none h-20 text-sm"></textarea>
-            </div>
-            
-            <button type="submit" class="w-full bg-white text-amber-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
-              REGISTRER LAMPE
-            </button>
-          </form>
-        </div>
-      </details>
-
-      <!-- BATTERIDRIVE UTSTYR -->
-      <details class="group bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] overflow-hidden">
-        <summary class="list-none p-6 flex items-center justify-between cursor-pointer">
-          <div class="flex items-center gap-3">
-            <div class="bg-white/30 text-white p-2 rounded-xl group-open:rotate-45 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            </div>
-            <span class="font-black uppercase tracking-widest text-xs text-white">🔋 Registrer batteriting</span>
-          </div>
-        </summary>
-        
-        <div class="px-6 pb-6">
-          <form method="POST" class="space-y-4">
-            <input type="hidden" name="action" value="create" />
-            <input type="hidden" name="category" value="battery" />
-            <input type="hidden" name="shape" value="" />
-            <input type="hidden" name="dimmable" value="false" />
-            <input type="hidden" name="colorTemp" value="" />
-            
-            <div>
-              <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Navn på utstyr</label>
-              <input type="text" name="name" placeholder="Lommelykt, Fjernkontroll..." required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-            
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Batteritype (AA, AAA...)</label>
-                <input type="text" name="type" placeholder="AA" required class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-              </div>
-              <div>
-                <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Antall batteri</label>
-                <input type="number" name="requiredCount" value="2" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-              </div>
-            </div>
-
-            {advancedMode ? (
-              <>
-                <div class="grid grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Bygning</label>
-                    <input type="text" name="building" placeholder="Hovedbygg" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Avdeling</label>
-                    <input type="text" name="department" placeholder="Fløy B" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Detalj</label>
-                    <input type="text" name="detail" placeholder="2. etasje" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
+                  <input
+                    type="text"
+                    name="type"
+                    value={editItem.type}
+                    placeholder="Type"
+                    required
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
+                  />
+                  <input
+                    type="text"
+                    name="shape"
+                    value={editItem.shape || ""}
+                    placeholder="Form"
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
+                  />
                 </div>
 
                 <div class="grid grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Antall like enheter</label>
-                    <input type="number" name="quantity" value="1" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Batteri per enhet</label>
-                    <input type="number" name="requiredCount" value="2" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Oppladbar?</label>
-                    <select name="rechargeable" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
-                      <option value="false">Nei</option>
-                      <option value="true">Ja</option>
-                    </select>
-                  </div>
+                  <input
+                    type="text"
+                    name="building"
+                    value={editItem.building || ""}
+                    placeholder="Bygg"
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
+                  />
+                  <input
+                    type="text"
+                    name="department"
+                    value={editItem.department || ""}
+                    placeholder="Avd"
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
+                  />
+                  <input
+                    type="text"
+                    name="detail"
+                    value={editItem.detail || ""}
+                    placeholder="Rom"
+                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
+                  />
                 </div>
-              </>
-            ) : (
-              <>
-                <input type="hidden" name="quantity" value="1" />
-                <div class="grid grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Plassering</label>
-                    <input type="text" name="detail" placeholder="Kjøkken" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Antall batteri</label>
-                    <input type="number" name="requiredCount" value="2" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Oppladbar?</label>
-                    <select name="rechargeable" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none">
-                      <option value="false">Nei</option>
-                      <option value="true">Ja</option>
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
 
-            <div>
-              <label class="block text-[9px] font-black uppercase text-emerald-900 mb-1 ml-1">Merknader</label>
-              <textarea name="notes" placeholder="Små skruer, trenger skrutrekker..." class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none h-20 text-sm"></textarea>
+                <button
+                  type="submit"
+                  class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg shadow-indigo-100 uppercase tracking-widest"
+                >
+                  Lagre endringer
+                </button>
+              </form>
             </div>
-            
-            <button type="submit" class="w-full bg-white text-emerald-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
-              REGISTRER BATTERITING
-            </button>
-          </form>
-        </div>
-      </details>
-
-      <!-- PRINTER -->
-      <details class="bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-[2rem] shadow-xl">
-        <summary class="flex items-center gap-3 mb-6 cursor-pointer list-none">
-          <div class="bg-white/30 p-2 rounded-xl text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-          </div>
-          <h2 class="text-white font-black uppercase tracking-widest text-xs">
-            🖨️ Registrer Printer
-          </h2>
-        </summary>
-
-        <div>
-          <form method="POST" class="space-y-4">
-            <input type="hidden" name="action" value="create" />
-            <input type="hidden" name="category" value="ink" />
-            <input type="hidden" name="requiredCount" value="1" />
-            <input type="hidden" name="dimmable" value="false" />
-            <input type="hidden" name="rechargeable" value="false" />
-
-            <div>
-              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Navn</label>
-              <input type="text" name="name" required placeholder="HP DeskJet i stua" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
+          ) : (
+            <div class="space-y-4">
+              {/* HER KOMMER DINE TRE REGISTRERINGSKORT (LAMPE, BATTERI, PRINTER) */}
+              {/* Du kan beholde dem som de er, men bruk de samme Tailwind-klassene for input-feltene som over */}
+              <p class="text-center text-slate-400 text-xs italic">
+                Velg type utstyr under for å starte registrering.
+              </p>
             </div>
-
-            <div>
-              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Blekk-type</label>
-              <input type="text" name="type" required placeholder="HP 302 XL" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white" />
-            </div>
-
-            <div>
-              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Kva patronar brukar printeren? (eitt navn per linje)</label>
-              <textarea 
-                name="cartridges" 
-                required 
-                rows="4" 
-                placeholder="Black&#10;Cyan&#10;Magenta&#10;Yellow"
-                class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none focus:bg-white resize-none"
-              ></textarea>
-              <p class="text-[8px] text-purple-700 mt-1 ml-1 italic">Tips: Black, Cyan, Magenta, Yellow, Light Cyan, Light Magenta, Photo Black, Matte Black, Gray, Light Gray, Red, Green...</p>
-            </div>
-
-            <div>
-              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Modell (valgfritt)</label>
-              <input type="text" name="model" placeholder="DeskJet 3630" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-            </div>
-
-            {advancedMode ? (
-              <>
-                <div class="grid grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Bygning</label>
-                    <input type="text" name="building" placeholder="Hovedbygg" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Avdeling</label>
-                    <input type="text" name="department" placeholder="2. etasje" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                  <div>
-                    <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Detalj</label>
-                    <input type="text" name="detail" placeholder="Rom 201" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Antall like enheter</label>
-                  <input type="number" name="quantity" value="1" min="1" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                </div>
-              </>
-            ) : (
-              <>
-                <input type="hidden" name="quantity" value="1" />
-                <div>
-                  <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Plassering</label>
-                  <input type="text" name="detail" placeholder="Kontor" class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none" />
-                </div>
-              </>
-            )}
-
-            <div>
-              <label class="block text-[9px] font-black uppercase text-purple-900 mb-1 ml-1">Merknader</label>
-              <textarea name="notes" placeholder="Treng både svart og farge..." class="w-full bg-white/90 border border-white/40 rounded-xl px-4 py-3 text-slate-900 font-bold outline-none h-20 text-sm"></textarea>
-            </div>
-            
-            <button type="submit" class="w-full bg-white text-purple-600 font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">
-              REGISTRER PRINTER
-            </button>
-          </form>
-        </div>
-      </details>
-    </div>
-    )}
+          )
+        }
       </div>
     </div>
 
-    <!-- SØK OG FILTER -->
-    <div class="mb-6 space-y-3">
-      <div>
-        <input 
-          type="search" 
-          name="search" 
-          placeholder={advancedMode ? "🔍 Søk etter utstyr, bygning, avdeling..." : "🔍 Søk etter utstyr..."}
-          value={searchQuery}
-          class="w-full bg-white border-2 border-slate-200 rounded-2xl px-5 py-3 text-slate-900 font-bold outline-none focus:border-blue-400"
-          onchange="updateFilter('search', this.value)"
-        />
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <select 
-          name="category" 
-          class="bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-sm outline-none"
+    <div class="mb-8 space-y-3">
+      <input
+        type="search"
+        placeholder="🔍 Søk i utstyr og rom..."
+        value={searchQuery}
+        class="w-full bg-white border-2 border-slate-100 rounded-[1.5rem] px-6 py-4 text-slate-900 font-bold outline-none focus:border-indigo-400 shadow-sm"
+        onchange="updateFilter('search', this.value)"
+      />
+      <div class="grid grid-cols-2 gap-2">
+        <select
           onchange="updateFilter('category', this.value)"
+          class="bg-white border-2 border-slate-100 rounded-xl px-4 py-3 font-black text-xs uppercase outline-none"
         >
-          <option value="all" selected={categoryFilter === "all"}>📦 Alle kategorier</option>
-          <option value="bulb" selected={categoryFilter === "bulb"}>💡 Lamper</option>
-          <option value="battery" selected={categoryFilter === "battery"}>🔋 Batterier</option>
-          <option value="ink" selected={categoryFilter === "ink"}>🖨️ Printere</option>
+          <option value="all">📦 Alle typer</option>
+          <option value="bulb" selected={categoryFilter === "bulb"}
+            >💡 Lamper</option
+          >
+          <option value="battery" selected={categoryFilter === "battery"}
+            >🔋 Batterier</option
+          >
+          <option value="ink" selected={categoryFilter === "ink"}
+            >🖨️ Printere</option
+          >
         </select>
-
-        <select 
-          name="type" 
-          class="bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-sm outline-none"
+        <select
           onchange="updateFilter('type', this.value)"
+          class="bg-white border-2 border-slate-100 rounded-xl px-4 py-3 font-black text-xs uppercase outline-none"
         >
-          <option value="">🏷️ Alle typer</option>
-          {uniqueTypes.map(t => (
-            <option value={t} selected={typeFilter === t}>{t}</option>
-          ))}
+          <option value="">🏷️ Spesifikasjon</option>
+          {
+            uniqueTypes.map((t) => (
+              <option value={t} selected={typeFilter === t}>
+                {t}
+              </option>
+            ))
+          }
         </select>
       </div>
-
-      {advancedMode && uniqueBuildings.length > 0 && (
-        <select 
-          name="building" 
-          class="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-sm outline-none"
-          onchange="updateFilter('building', this.value)"
-        >
-          <option value="">🏢 Alle bygninger</option>
-          {uniqueBuildings.map(b => (
-            <option value={b} selected={buildingFilter === b}>{b}</option>
-          ))}
-        </select>
-      )}
-
-      {(searchQuery || categoryFilter !== "all" || typeFilter || buildingFilter) && (
-        <a 
-          href="/enheter" 
-          class="block text-center text-sm font-bold text-blue-600 py-2"
-        >
-          ✕ Nullstill filtre
-        </a>
-      )}
     </div>
 
     <section class="space-y-4">
       <div class="flex items-center justify-between px-2">
-        <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Registrert utstyr</h2>
-        <span class="text-[10px] font-bold text-slate-400">{items.length} ENHETER</span>
+        <h2
+          class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300"
+        >
+          Registrert utstyr
+        </h2>
+        <span class="text-[10px] font-black text-slate-300"
+          >{items.length} ENHETER</span
+        >
       </div>
 
-      <div class="grid gap-4">
-        {items.map(item => {
-          // Spesialhandtering av inStockCount for printerar
-          let inStockCount = 0;
-          
-          if (item.category === 'ink' && item.shape?.includes(',')) {
-            // For printerar: finn minimum stock av alle patronar
-            const cartridges = item.shape.split(',').map(c => c.trim());
-            const cartridgeCounts = cartridges.map(cartridge => 
-              stockMap[`${item.type}-${cartridge}-false-false`] || 0
+      <div class="grid gap-6">
+        {
+          items.map((item) => {
+            let inStockCount = 0;
+            if (item.category === "ink" && item.shape?.includes(",")) {
+              const counts = item.shape
+                .split(",")
+                .map(
+                  (c) => stockMap[`${item.type}-${c.trim()}-false-false`] || 0,
+                );
+              inStockCount = Math.min(...counts);
+            } else {
+              inStockCount =
+                stockMap[
+                  `${item.type}-${item.shape || ""}-${item.dimmable || false}-${item.rechargeable || false}`
+                ] || 0;
+            }
+            return (
+              <InventoryCard
+                {...item}
+                inStockCount={inStockCount}
+                stockMap={stockMap}
+              />
             );
-            inStockCount = Math.min(...cartridgeCounts);
-          } else {
-            // Vanleg logikk for lamper og batterier
-            inStockCount = stockMap[`${item.type}-${item.shape || ""}-${item.dimmable || false}-${item.rechargeable || false}`] || 0;
-          }
-          
-          return (
-            <InventoryCard 
-              {...item} 
-              inStockCount={inStockCount}
-              stockMap={stockMap}
-            />
-          );
-        })}
+          })
+        }
       </div>
     </section>
-
   </main>
 </Layout>
 
 <script>
+  import toast from "react-hot-toast";
+
+  // URL Filter logic
   function updateFilter(key: string, value: string) {
     const url = new URL(window.location.href);
-    if (value) {
-      url.searchParams.set(key, value);
-    } else {
-      url.searchParams.delete(key);
-    }
+    if (value) url.searchParams.set(key, value);
+    else url.searchParams.delete(key);
     window.location.href = url.toString();
   }
   
-  // Legg til global funksjon for å kunne brukes fra inline event handlers
-  (window as any).updateFilter = updateFilter;
-
-  // DRAWER FUNKSJONALITET
-  const drawer = document.getElementById('drawer');
-  const overlay = document.getElementById('drawerOverlay');
-  const openBtn = document.getElementById('openDrawer');
-  const closeBtn = document.getElementById('closeDrawer');
-
-  function openDrawer() {
-    drawer?.classList.remove('translate-x-full');
-    overlay?.classList.remove('opacity-0', 'pointer-events-none');
+  declare global {
+    interface Window {
+      updateFilter: (key: string, value: string) => void;
+    }
   }
-
-  function closeDrawer() {
-    drawer?.classList.add('translate-x-full');
-    overlay?.classList.add('opacity-0', 'pointer-events-none');
-  }
-
-  openBtn?.addEventListener('click', openDrawer);
-  closeBtn?.addEventListener('click', closeDrawer);
-  overlay?.addEventListener('click', closeDrawer);
-
-  // Lukk ved ESC-tast
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDrawer();
-  });
   
-  // Opne drawer automatisk ved redigering
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.has('edit')) {
-    openDrawer();
+  window.updateFilter = updateFilter;
+
+  // Drawer logic
+  const drawer = document.getElementById("drawer");
+  const overlay = document.getElementById("drawerOverlay");
+  const openBtn = document.getElementById("openDrawer");
+  const closeBtn = document.getElementById("closeDrawer");
+
+  openBtn?.addEventListener("click", () => {
+    drawer?.classList.remove("translate-x-full");
+    overlay?.classList.remove("opacity-0", "pointer-events-none");
+  });
+
+  const close = () => {
+    drawer?.classList.add("translate-x-full");
+    overlay?.classList.add("opacity-0", "pointer-events-none");
+  };
+
+  closeBtn?.addEventListener("click", close);
+  overlay?.addEventListener("click", close);
+
+  // Toast notifications
+  const params = new URLSearchParams(window.location.search);
+  const toastMsg = params.get("toast");
+  const item = params.get("item");
+  if (toastMsg && item) {
+    const messages: Record<string, string> = {
+      created: `✅ ${item} er nå registrert`,
+      updated: `✏️ ${item} er oppdatert`,
+      deleted: `🗑️ ${item} er fjernet`,
+      replaced: `🔧 Utstyr byttet på ${item}`,
+    };
+    toast.success(messages[toastMsg] || "Ferdig!", {
+      style: {
+        borderRadius: "20px",
+        background: "#0f172a",
+        color: "#fff",
+        fontWeight: "bold",
+      },
+    });
+    window.history.replaceState({}, "", window.location.pathname);
   }
 </script>

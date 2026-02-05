@@ -5,177 +5,121 @@ import Layout from "../layouts/Layout.astro";
 
 <Layout title="Velkommen">
   <div class="max-w-4xl mx-auto px-6 pt-16 pb-32">
-    <!-- Hero section -->
+    
     <header class="text-center mb-16">
-      <h1
-        class="text-5xl md:text-6xl font-black text-slate-900 tracking-tight mb-4"
-      >
-        Fullt Lager
+      <div class="inline-block bg-indigo-100 text-indigo-700 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-6">
+        Din digitale vaktmester-assistent
+      </div>
+      <h1 class="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter mb-6">
+        Full kontroll.<br/>Fullt lager.
       </h1>
-      <p
-        class="text-xl md:text-2xl text-slate-600 max-w-2xl mx-auto leading-relaxed"
-      >
-        <span class="font-bold">Slutt på feilkjøp og tomme hyller.</span><br
-        />Vi holder styr på spesifikasjonene for deg, enten du administrerer én
-        bolig eller mange bygg.
+      <p class="text-xl md:text-2xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium">
+        Slutt på feilkjøp og tomme hyller. Vi husker spesifikasjonene for deg, enten du styrer én bolig eller hundre bygg.
       </p>
     </header>
 
-    <!-- Kort om appen -->
-    <section
-      class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-3xl p-8 md:p-12 mb-12 border border-slate-200 shadow-lg"
-    >
-      <h2 class="text-2xl font-black text-slate-900 mb-2 text-center">
-        Slik fungerer Fullt Lager
+    <section class="bg-white rounded-[3rem] p-8 md:p-16 mb-12 border-2 border-slate-100 shadow-2xl shadow-indigo-100/50 relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl -mr-32 -mt-32 opacity-50"></div>
+      
+      <h2 class="text-3xl font-black text-slate-900 mb-10 text-center tracking-tight relative z-10">
+        Glem tekniske detaljer
       </h2>
-      <p class="text-slate-600 text-center mb-8 italic">
-        Glem tekniske detaljer – vi holder styr på dem for deg.
-      </p>
-      <div class="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-        <div class="text-center">
-          <div
-            class="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md"
-          >
-            <span class="text-3xl">💡</span>
+      
+      <div class="grid md:grid-cols-3 gap-10 relative z-10">
+        <div class="space-y-4">
+          <div class="bg-amber-100 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner">
+            <span class="text-2xl">💡</span>
           </div>
-          <h3 class="font-black text-slate-900 mb-2">Pærer og sokler</h3>
-          <p class="text-left text-sm bg-indigo-100/40 px-2 py-1 rounded-md shadow-sm text-slate-600">
-            Slutt å lure på om det var E27 eller E14, og om pæra skal være
-            varmhvit eller dagslys. Vi husker nøyaktig hva som står i hver
-            lampe.
+          <h3 class="font-black text-lg text-slate-900">Pærer & sokler</h3>
+          <p class="text-sm text-slate-500 leading-relaxed font-medium">
+            Slutt å lure på om det var E27 eller E14. Vi vet nøyaktig hvilken pære, fargetemperatur og lumen som står i hver lampe.
           </p>
         </div>
 
-        <div class="text-center">
-          <div
-            class="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md"
-          >
-            <span class="text-3xl">🔋</span>
+        <div class="space-y-4">
+          <div class="bg-emerald-100 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner">
+            <span class="text-2xl">🔋</span>
           </div>
-          <h3 class="font-black text-slate-900 mb-2">Batterier og blekk</h3>
-          <p class="text-left text-sm bg-indigo-100/40 px-2 py-1 rounded-md shadow-sm text-slate-600">
-            Fra knappebatterier i fjernkontrollen til de riktige patronene i
-            printeren. Du har alltid spesifikasjonene i lomma når du står i
-            butikken.
+          <h3 class="font-black text-lg text-slate-900">Batteri & blekk</h3>
+          <p class="text-sm text-slate-500 leading-relaxed font-medium">
+            Fra små knappebatterier til riktige patroner i printeren. Du har alltid listen klar i lomma når du står i butikken.
           </p>
         </div>
 
-        <div class="text-center">
-          <div
-            class="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md"
-          >
-            <span class="text-3xl">📍</span>
+        <div class="space-y-4">
+          <div class="bg-indigo-100 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner">
+            <span class="text-2xl">🏢</span>
           </div>
-          <h3 class="font-black text-slate-900 mb-2">Full oversikt overalt</h3>
-          <p class="text-left text-sm bg-indigo-100/40 px-2 py-1 rounded-md shadow-sm text-slate-600">
-            Organiser utstyret ditt etter bygg og rom. Enten det er boden
-            hjemme, kjøkkenskapet på hytta eller lageret på jobben, vet du
-            alltid hva du har.
+          <h3 class="font-black text-lg text-slate-900">Mange steder</h3>
+          <p class="text-sm text-slate-500 leading-relaxed font-medium">
+            Organiser etter bygg og rom. Enten det er boden hjemme, hytta eller lageret på jobben, har du full oversikt overalt.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- Funksjonalitet -->
-    <section class="mb-16 max-w-2xl mx-auto">
-      <h2 class="text-2xl font-black text-slate-900 mb-6 text-center">
-        Slik kommer du i gang
-      </h2>
-      <div class="space-y-4">
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex gap-4 items-start">
-            <div
-              class="bg-indigo-100 text-indigo-600 font-black w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            >
-              1
+    <section class="mb-20 max-w-2xl mx-auto">
+      <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8 text-center">Slik kommer du i gang</h2>
+      <div class="space-y-6">
+        {[
+          { 
+            step: "1", 
+            title: "Opprett din profil", 
+            text: "Du er i gang på sekunder. Informasjonen din lagres trygt i skyen og er alltid tilgjengelig." 
+          },
+          { 
+            step: "2", 
+            title: "Legg til dine steder", 
+            text: "Opprett huset, hytta eller arbeidsplassen din. Inviter andre for å dele oversikten med dem." 
+          },
+          { 
+            step: "3", 
+            title: "Oppdater med ett trykk", 
+            text: "Når du bytter en pære eller et batteri, trykker du bare i appen. Vi gir beskjed når det er på tide å kjøpe nytt." 
+          }
+        ].map((item) => (
+          <div class="flex gap-6 items-center p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+            <div class="bg-white text-indigo-600 font-black w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm text-xl">
+              {item.step}
             </div>
             <div>
-              <h3 class="font-black text-slate-900 mb-1">
-                Logg inn eller opprett konto
-              </h3>
-              <p class="text-sm text-slate-600">
-                Du er i gang på sekunder. Lag din egen bruker for å lagre
-                informasjonen din trygt i skyen.
-              </p>
+              <h3 class="font-black text-slate-900 mb-1">{item.title}</h3>
+              <p class="text-sm text-slate-500 font-medium">{item.text}</p>
             </div>
           </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex gap-4 items-start">
-            <div
-              class="bg-indigo-100 text-indigo-600 font-black w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            >
-              2
-            </div>
-            <div>
-              <h3 class="font-black text-slate-900 mb-1">
-                Velg eller opprett et sted
-              </h3>
-              <p class="text-sm text-slate-600">
-                Opprett din egen husstand, hytte eller arbeidsplass – eller
-                koble deg til et eksisterende bygg hvis du er en del av et team.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex gap-4 items-start">
-            <div
-              class="bg-indigo-100 text-indigo-600 font-black w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            >
-              3
-            </div>
-            <div>
-              <h3 class="font-black text-slate-900 mb-1">
-                Oppdater med ett trykk
-              </h3>
-              <p class="text-sm text-slate-600">
-                Registrer utstyret ditt én gang. Når du bytter en pære eller et
-                batteri, trykker du bare på knappen i appen. Vi holder kontroll
-                på lagerbeholdningen for deg og forteller deg når du må kjøpe
-                mer.
-              </p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
 
-    <!-- CTA buttons -->
-    <section class="mb-16 text-center">
-      <h2 class="text-3xl font-black text-slate-900 mb-3">
-        Klar for full kontroll?
-      </h2>
-      <p class="text-slate-600 mb-8">
-        Bli med og glem alt du tidligere måtte huske.
-      </p>
+    <section class="text-center bg-indigo-600 rounded-[3rem] p-12 md:p-20 text-white shadow-2xl shadow-indigo-200">
+      <h2 class="text-4xl md:text-5xl font-black mb-6 tracking-tighter">Klar for full kontroll?</h2>
+      <p class="text-indigo-100 mb-10 text-lg font-medium">Bli med i dag og glem alt du tidligere måtte huske.</p>
 
-      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <a
           href="/registrer"
-          class="w-full sm:w-64 bg-slate-900 text-white font-black px-10 py-5 rounded-2xl hover:bg-slate-800 transition-all active:scale-[0.98] text-center text-lg"
+          class="bg-white text-indigo-600 font-black px-12 py-5 rounded-2xl hover:bg-slate-50 transition-all active:scale-95 text-lg shadow-xl"
         >
           KOM I GANG
         </a>
         <a
           href="/login"
-          class="w-full sm:w-64 bg-indigo-600 text-white font-black px-10 py-5 rounded-2xl hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-200 transition-all active:scale-[0.98] text-center text-lg"
+          class="bg-indigo-700 text-white font-black px-12 py-5 rounded-2xl hover:bg-indigo-800 transition-all active:scale-95 text-lg"
         >
           LOGG INN
         </a>
       </div>
     </section>
 
-    <!-- Målgruppe info -->
-    <div class="mt-16 text-left">
-      <p class="text-sm text-slate-500 max-w-xl mx-auto">
-        <span class="font-bold">Laget for både små og store behov</span><br>Fullt Lager er den ideelle løsningen
-        for vaktmestere, borettslag og alle som administrerer flere bygg. Vi
-        gjør det enkelt å holde oversikt over elektrisk forbruksmateriell, slik
-        at du alltid har riktig del tilgjengelig når det blir mørkt.
-      </p>
-    </div>
+    <footer class="mt-20 border-t border-slate-100 pt-10">
+      <div class="max-w-xl mx-auto text-center">
+        <p class="text-xs text-slate-400 leading-relaxed font-bold uppercase tracking-widest mb-4">
+          For både små og store behov
+        </p>
+        <p class="text-sm text-slate-500 leading-relaxed italic">
+          Fullt Lager er ideelt for vaktmestere, borettslag og alle som administrerer flere bygg. Vi gjør det enkelt å holde oversikt, slik at du alltid har riktig del tilgjengelig når det blir mørkt.
+        </p>
+      </div>
+    </footer>
   </div>
 </Layout>

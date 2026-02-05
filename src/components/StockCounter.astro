@@ -3,13 +3,14 @@
 const { type, currentCount, id } = Astro.props;
 ---
 
-<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
+<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center relative">
   <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{type}</span>
   
   <div class="flex items-center gap-4">
     <form method="POST">
       <input type="hidden" name="action" value="adjust_stock" />
       <input type="hidden" name="stockId" value={id} />
+      <input type="hidden" name="stockType" value={type} />
       <input type="hidden" name="adjustment" value="-1" />
       <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 font-bold transition-colors">-</button>
     </form>
@@ -19,8 +20,25 @@ const { type, currentCount, id } = Astro.props;
     <form method="POST">
       <input type="hidden" name="action" value="adjust_stock" />
       <input type="hidden" name="stockId" value={id} />
+      <input type="hidden" name="stockType" value={type} />
       <input type="hidden" name="adjustment" value="1" />
       <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-600 font-bold transition-colors">+</button>
     </form>
   </div>
+  
+  <!-- Slette-knapp -->
+  <form method="POST" class="absolute top-2 right-2" id={`delete-stock-form-${id}`}>
+    <input type="hidden" name="action" value="delete_stock" />
+    <input type="hidden" name="stockId" value={id} />
+    <input type="hidden" name="stockType" value={type} />
+    <button 
+      type="submit"
+      class="w-6 h-6 rounded-full bg-slate-100 hover:bg-red-500 text-slate-400 hover:text-white transition-all duration-200 flex items-center justify-center"
+      title="Slett {type} frå lager"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+      </svg>
+    </button>
+  </form>
 </div>
