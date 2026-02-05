@@ -1,28 +1,40 @@
-<nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-sm bg-white/80 backdrop-blur-xl border border-slate-200 shadow-2xl rounded-[2.5rem] flex items-center justify-around py-4 px-2 z-50">
-			<a href="/" class="flex flex-col items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-indigo-600 transition-all">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-				<span class="text-[8px] font-black uppercase tracking-widest">Heim</span>
-			</a>
+---
+// Finn ut hvilken side vi er på for å markere aktivt ikon
+const pathname = new URL(Astro.request.url).pathname;
+const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
+---
 
-			<a href="/beholdning" class="flex flex-col items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-indigo-600 transition-all">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
-				<span class="text-[8px] font-black uppercase tracking-widest">Lager</span>
-			</a>
+<nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-sm bg-white/90 backdrop-blur-xl border border-slate-200 shadow-2xl rounded-[2.5rem] flex items-center justify-around py-4 px-2 z-50 ring-1 ring-slate-900/5">
+    
+    {/* DASHBORD / HJEM */}
+    <a href="/dashboard" class={`flex flex-col items-center gap-1.5 px-3 py-1 transition-all active:scale-90 ${isActive('/dashboard') ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span class="text-[8px] font-black uppercase tracking-[0.15em]">Hjem</span>
+    </a>
 
-			<a href="/enheter" class="flex flex-col items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-indigo-600 transition-all">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 3.5-3.5"/><path d="m3.5 17.5 1.5 1.5"/><path d="M5.8 14.2 14 6c1.1-1.1 3.1-1.1 4.2 0s1.1 3.1 0 4.2l-8.2 8.2c-1.1 1.1-3.1 1.1-4.2 0l-1.8-1.8Z"/></svg>
-				<span class="text-[8px] font-black uppercase tracking-widest">Bytt</span>
-			</a>
+    {/* LAGER */}
+    <a href="/beholdning" class={`flex flex-col items-center gap-1.5 px-3 py-1 transition-all active:scale-90 ${isActive('/beholdning') ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        <span class="text-[8px] font-black uppercase tracking-[0.15em]">Lager</span>
+    </a>
 
-			<a href="/husstand" class="flex flex-col items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-indigo-600 transition-all">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-				<span class="text-[8px] font-black uppercase tracking-widest">Team</span>
-			</a>
+    {/* BYTT / VEDLIKEHOLD */}
+    <a href="/enheter" class={`flex flex-col items-center gap-1.5 px-3 py-1 transition-all active:scale-90 ${isActive('/enheter') ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 3.5-3.5"/><path d="m3.5 17.5 1.5 1.5"/><path d="M5.8 14.2 14 6c1.1-1.1 3.1-1.1 4.2 0s1.1 3.1 0 4.2l-8.2 8.2c-1.1 1.1-3.1 1.1-4.2 0l-1.8-1.8Z"/></svg>
+        <span class="text-[8px] font-black uppercase tracking-[0.15em]">Bytt</span>
+    </a>
 
-			<div class="w-[1px] h-8 bg-slate-100 mx-1"></div>
+    {/* TEAM / HUSSTAND */}
+    <a href="/husstand" class={`flex flex-col items-center gap-1.5 px-3 py-1 transition-all active:scale-90 ${isActive('/husstand') ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        <span class="text-[8px] font-black uppercase tracking-[0.15em]">Team</span>
+    </a>
 
-			<a href="/vel-hus" class="flex flex-col items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-indigo-600 transition-all">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 3 2.336 4.665 3 5.127C5 17 3 20 3 21ZM14 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 3 2.336 4.665 3 5.127C16 17 14 20 14 21Z"/></svg>
-				<span class="text-[8px] font-black uppercase tracking-widest">Bygg</span>
-			</a>
-		</nav>
+    <div class="w-[1px] h-6 bg-slate-100 mx-1"></div>
+
+    {/* BYTT BYGG / LOKASJON */}
+    <a href="/vel-hus" class={`flex flex-col items-center gap-1.5 px-3 py-1 transition-all active:scale-90 ${isActive('/vel-hus') ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 3 2.336 4.665 3 5.127C5 17 3 20 3 21ZM14 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 3 2.336 4.665 3 5.127C16 17 14 20 14 21Z"/></svg>
+        <span class="text-[8px] font-black uppercase tracking-[0.15em]">Bygg</span>
+    </a>
+</nav>

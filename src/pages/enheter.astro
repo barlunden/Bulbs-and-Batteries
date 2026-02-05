@@ -100,7 +100,11 @@ if (Astro.request.method === "POST") {
       const itemId = data.get("itemId")?.toString();
       const itemName = data.get("itemName")?.toString() || "Utstyr";
       const type = data.get("itemType")?.toString();
+      const shape = data.get("itemShape")?.toString() || "";
       const category = data.get("itemCategory")?.toString();
+      const replaceQuantity = Number(data.get("replaceQuantity") || 1);
+      const dimmable = data.get("dimmable") === "true";
+      const rechargeable = data.get("rechargeable") === "true";
 
       await authedSupabase
         .from("items")
@@ -117,29 +121,74 @@ if (Astro.request.method === "POST") {
             .eq("household_id", householdId)
             .eq("type", type)
             .eq("shape", cartridge)
+            .eq("dimmable", false)
+            .eq("rechargeable", false)
             .single();
-          if (stock)
+          
+          if (stock) {
             await authedSupabase
               .from("stock")
               .update({ current_count: Math.max(0, stock.current_count - 1) })
               .eq("id", stock.id);
+          }
         }
       } else {
         const bulbCount = Number(data.get("bulbCount") || 1);
-        const replaceQty = Number(data.get("replaceQuantity") || 1);
-        const total = bulbCount * replaceQty;
-        const { data: stock } = await authedSupabase
+        const totalToReduce = bulbCount * replaceQuantity;
+        
+        // Søk først etter eksakt match
+        let query = authedSupabase
           .from("stock")
-          .select("id, current_count")
+          .select("id, current_count, dimmable, rechargeable")
           .eq("household_id", householdId)
           .eq("type", type)
-          .single();
-        if (stock)
-          await authedSupabase
+          .eq("dimmable", dimmable)
+          .eq("rechargeable", rechargeable);
+
+        if (shape && shape !== "null" && shape !== "") {
+          query = query.eq("shape", shape);
+        } else {
+          query = query.or('shape.is.null,shape.eq.""');
+        }
+
+        let { data: stock, error: stockError } = await query.single();
+        
+        // Viss ingen eksakt match, søk utan dimmable/rechargeable
+        if (!stock || stockError) {
+          let fallbackQuery = authedSupabase
             .from("stock")
-            .update({ current_count: Math.max(0, stock.current_count - total) })
+            .select("id, current_count, dimmable, rechargeable")
+            .eq("household_id", householdId)
+            .eq("type", type);
+            
+          if (shape && shape !== "null" && shape !== "") {
+            fallbackQuery = fallbackQuery.eq("shape", shape);
+          } else {
+            fallbackQuery = fallbackQuery.or('shape.is.null,shape.eq.""');
+          }
+          
+          const { data: fallbackStock } = await fallbackQuery.single();
+          
+          if (fallbackStock) {
+            stock = fallbackStock;
+            // Oppdater stock til å matche item
+            await authedSupabase.from("stock")
+              .update({ 
+                dimmable: dimmable,
+                rechargeable: rechargeable
+              })
+              .eq("id", stock.id);
+          }
+        }
+
+        if (stock) {
+          const newCount = Math.max(0, (stock.current_count || 0) - totalToReduce);
+          await authedSupabase.from("stock")
+            .update({ current_count: newCount })
             .eq("id", stock.id);
+        }
       }
+      
       return Astro.redirect(
         Astro.url.pathname +
           `?toast=replaced&item=${encodeURIComponent(itemName)}`,

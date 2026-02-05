@@ -209,6 +209,12 @@ const formatDate = (dateStr?: string) => {
   <form method="POST" action="" id={`form-${id}`}>
     <input type="hidden" name="action" value="replace_item" />
     <input type="hidden" name="itemId" value={id} />
+    <input type="hidden" name="itemName" value={name} />
+    <input type="hidden" name="itemType" value={type} />
+    <input type="hidden" name="itemShape" value={shape || ""} />
+    <input type="hidden" name="itemCategory" value={category} />
+    <input type="hidden" name="dimmable" value={isDimmable.toString()} />
+    <input type="hidden" name="rechargeable" value={isRechargeable.toString()} />
     
     {/* Printer-velger */}
     {isPrinter && cartridges.length > 0 && (
