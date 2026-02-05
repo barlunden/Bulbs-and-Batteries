@@ -91,8 +91,7 @@ if (Astro.request.method === "POST") {
         .eq("id", itemId)
         .eq("household_id", householdId);
       return Astro.redirect(
-        Astro.url.pathname +
-          `?toast=updated&item=${encodeURIComponent(updates.name)}`,
+        `/enheter?toast=updated&item=${encodeURIComponent(updates.name)}`,
       );
     }
 
@@ -363,74 +362,211 @@ const stockMap = Object.fromEntries(
       <div class="p-6 pb-32 space-y-6">
         {
           editItem ? (
-            <div class="bg-white border-2 border-indigo-100 rounded-[2.5rem] p-6 shadow-xl">
-              <form method="POST" class="space-y-4">
+            <div class={`p-6 rounded-[2.5rem] shadow-lg text-white ${
+              editItem.category === 'bulb' ? 'bg-amber-500' :
+              editItem.category === 'battery' ? 'bg-emerald-500' :
+              'bg-purple-500'
+            }`}>
+              <h3 class="font-black text-xs uppercase mb-4 tracking-widest">
+                {editItem.category === 'bulb' ? '💡 Rediger Lampe' :
+                 editItem.category === 'battery' ? '🔋 Rediger Batteri' :
+                 '🖨️ Rediger Printer'}
+              </h3>
+              <form method="POST" class="space-y-4 text-slate-900" id="editForm">
                 <input type="hidden" name="action" value="update_item" />
                 <input type="hidden" name="itemId" value={editItem.id} />
+                <input type="hidden" name="category" value={editItem.category} />
+
                 <input
-                  type="hidden"
-                  name="category"
-                  value={editItem.category}
+                  type="text"
+                  name="name"
+                  value={editItem.name}
+                  placeholder="Navn"
+                  required
+                  class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
                 />
 
-                <div>
-                  <label class="block text-[10px] font-black uppercase text-slate-400 mb-1 ml-2">
-                    Navn
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={editItem.name}
-                    required
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
-                  />
-                </div>
+                {editItem.category === 'ink' ? (
+                  <>
+                    <div class="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        name="type"
+                        value={editItem.type}
+                        placeholder="Blekktype (HP304...)"
+                        required
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                      <input
+                        type="text"
+                        name="model"
+                        value={editItem.color_temp || ""}
+                        placeholder="Modell"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                    </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    name="type"
-                    value={editItem.type}
-                    placeholder="Type"
-                    required
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
-                  />
-                  <input
-                    type="text"
-                    name="shape"
-                    value={editItem.shape || ""}
-                    placeholder="Form"
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
-                  />
-                </div>
+                    <textarea
+                      name="cartridges"
+                      placeholder="Patroner (kommaseparert: BK,C,M,Y)"
+                      rows="2"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    >{editItem.shape || ""}</textarea>
 
-                <div class="grid grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    name="building"
-                    value={editItem.building || ""}
-                    placeholder="Bygg"
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
-                  />
-                  <input
-                    type="text"
-                    name="department"
-                    value={editItem.department || ""}
-                    placeholder="Avd"
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
-                  />
-                  <input
-                    type="text"
-                    name="detail"
-                    value={editItem.detail || ""}
-                    placeholder="Rom"
-                    class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none"
-                  />
-                </div>
+                    <input
+                      type="number"
+                      name="quantity"
+                      value={editItem.quantity || 1}
+                      placeholder="Antall printere"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                  </>
+                ) : editItem.category === 'battery' ? (
+                  <>
+                    <input
+                      type="text"
+                      name="type"
+                      value={editItem.type}
+                      placeholder="Type (AA, AAA...)"
+                      required
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <input
+                        type="number"
+                        name="quantity"
+                        value={editItem.quantity || 1}
+                        placeholder="Antall i enheten"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                      <input
+                        type="number"
+                        name="requiredCount"
+                        value={editItem.required_count || 1}
+                        placeholder="Reserve"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                    </div>
+
+                    <label class="flex items-center gap-3 bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        name="rechargeable"
+                        value="true"
+                        checked={editItem.rechargeable}
+                        class="w-5 h-5 rounded"
+                      />
+                      <div>
+                        <span class="font-bold text-sm block">🔌 Oppladbar</span>
+                        <span class="text-xs text-slate-500">For oppladbare batterier</span>
+                      </div>
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <div class="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        name="type"
+                        value={editItem.type}
+                        placeholder="Type (E27...)"
+                        required
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                      <input
+                        type="text"
+                        name="shape"
+                        value={editItem.shape || ""}
+                        placeholder="Form (Globe...)"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <input
+                        type="number"
+                        name="quantity"
+                        value={editItem.quantity || 1}
+                        placeholder="Antall i enheten"
+                        min="1"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                      <input
+                        type="number"
+                        name="requiredCount"
+                        value={editItem.required_count || 1}
+                        placeholder="Reserve"
+                        min="0"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                      />
+                    </div>
+
+                    <input
+                      type="text"
+                      name="colorTemp"
+                      value={editItem.color_temp || ""}
+                      placeholder="Farge temp (3000K, 4000K...)"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+
+                    <label class="flex items-center gap-3 bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        name="dimmable"
+                        value="true"
+                        checked={editItem.dimmable}
+                        class="w-5 h-5 rounded"
+                      />
+                      <div>
+                        <span class="font-bold text-sm block">🔆 Dimbar</span>
+                        <span class="text-xs text-slate-500">For dimmbare pærer</span>
+                      </div>
+                    </label>
+                  </>
+                )}
+
+                {advancedMode && (
+                  <div class="grid grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      name="building"
+                      value={editItem.building || ""}
+                      placeholder="Bygg"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="text"
+                      name="department"
+                      value={editItem.department || ""}
+                      placeholder="Avdeling"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="text"
+                      name="detail"
+                      value={editItem.detail || ""}
+                      placeholder="Rom"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                )}
+
+                <textarea
+                  name="notes"
+                  placeholder="Notater (valgfritt)"
+                  rows="2"
+                  class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                >{editItem.notes || ""}</textarea>
 
                 <button
                   type="submit"
-                  class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg shadow-indigo-100 uppercase tracking-widest"
+                  class="w-full bg-white font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+                  class:list={[
+                    editItem.category === 'bulb' ? 'text-amber-600' :
+                    editItem.category === 'battery' ? 'text-emerald-600' :
+                    'text-purple-600'
+                  ]}
                 >
                   Lagre endringer
                 </button>
@@ -808,6 +944,18 @@ const stockMap = Object.fromEntries(
   
   window.updateFilter = updateFilter;
 
+  // Lukk drawer ved form submit (for redigering)
+  const editForm = document.getElementById('editForm');
+  if (editForm) {
+    editForm.addEventListener('submit', () => {
+      // Lukk draweren med ein gong før redirect
+      const drawer = document.getElementById('drawer');
+      const overlay = document.getElementById('drawerOverlay');
+      drawer?.classList.add('translate-x-full');
+      overlay?.classList.add('opacity-0', 'pointer-events-none');
+    });
+  }
+
   // Drawer logic
   const drawer = document.getElementById("drawer");
   const overlay = document.getElementById("drawerOverlay");
@@ -815,6 +963,19 @@ const stockMap = Object.fromEntries(
   const closeBtn = document.getElementById("closeDrawer");
 
   openBtn?.addEventListener("click", () => {
+    // Alltid reload sida viss vi har vore i redigeringsmodus før
+    // Dette sikrar at vi får fresh HTML frå serveren
+    const url = new URL(window.location.href);
+    const hasToast = url.searchParams.has('toast');
+    const hasEdit = url.searchParams.has('edit');
+    
+    // Viss vi nett har lagra noko (toast) eller har hatt edit-mode, reload først
+    if (hasToast || hasEdit) {
+      // Fjern alle parameters og reload for å få fresh state
+      window.location.href = '/enheter';
+      return;
+    }
+    
     drawer?.classList.remove("translate-x-full");
     overlay?.classList.remove("opacity-0", "pointer-events-none");
   });
@@ -824,8 +985,39 @@ const stockMap = Object.fromEntries(
     overlay?.classList.add("opacity-0", "pointer-events-none");
   };
 
-  closeBtn?.addEventListener("click", close);
-  overlay?.addEventListener("click", close);
+  closeBtn?.addEventListener("click", () => {
+    close();
+    // Fjern edit-parameteren frå URL når draweren lukkas
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('edit')) {
+      // Reload sida for å få fresh HTML utan editItem
+      window.location.href = '/enheter';
+    }
+  });
+  
+  overlay?.addEventListener("click", () => {
+    close();
+    // Fjern edit-parameteren frå URL når draweren lukkas
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('edit')) {
+      // Reload sida for å få fresh HTML utan editItem
+      window.location.href = '/enheter';
+    }
+  });
+
+  // Opne draweren automatisk viss det er ein edit-parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('edit')) {
+    drawer?.classList.remove("translate-x-full");
+    overlay?.classList.remove("opacity-0", "pointer-events-none");
+  }
+  
+  // Viss toast-melding vises (etter lagring) og drawer framleis er open, lukk den
+  if (urlParams.has('toast') && !urlParams.has('edit')) {
+    // Sida blei nettopp lastet etter ein redirect frå lagring
+    drawer?.classList.add('translate-x-full');
+    overlay?.classList.add('opacity-0', 'pointer-events-none');
+  }
 
   // Toast notifications
   const params = new URLSearchParams(window.location.search);
