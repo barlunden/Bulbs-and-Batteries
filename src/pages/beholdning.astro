@@ -305,21 +305,55 @@ const availableTypes = Array.from(new Set(stockItems.filter(i => categoryFilter 
         <button id="closeDrawer" class="bg-white/10 p-2 rounded-xl">Lukk</button>
       </div>
 
-      <div class="p-6 space-y-6">
+      <div class="p-6 pb-32 space-y-6">
         {/* SKJEMA FOR PÆRER */}
         <section class="bg-amber-500 p-6 rounded-[2rem] shadow-lg text-white">
           <h3 class="font-black text-xs uppercase mb-4 tracking-widest">💡 Legg til Lyspærer</h3>
           <form method="POST" class="space-y-4 text-slate-900">
-            <input type="hidden" name="action" value="add_new_stock_type" /><input type="hidden" name="category" value="bulb" />
-            <div class="grid grid-cols-2 gap-2">
-              <input type="text" name="type" placeholder="Type (E27...)" required class="rounded-xl p-3 font-bold outline-none" />
-              <select name="shape" class="rounded-xl p-3 font-bold outline-none"><option value="">Standard</option><option value="Krone">Krone</option><option value="Globe">Globe</option></select>
+            <input type="hidden" name="action" value="add_new_stock_type" />
+            <input type="hidden" name="category" value="bulb" />
+            
+            <div class="grid grid-cols-2 gap-3">
+              <input 
+                type="text" 
+                name="type" 
+                placeholder="Type (E27...)" 
+                required 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+              <select 
+                name="shape" 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+              >
+                <option value="">Standard</option>
+                <option value="Krone">Krone</option>
+                <option value="Globe">Globe</option>
+              </select>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-              <input type="number" name="initialCount" placeholder="Antall" required class="rounded-xl p-3 font-bold outline-none" />
-              <input type="number" name="minThreshold" placeholder="Min.nivå" class="rounded-xl p-3 font-bold outline-none" />
+            
+            <div class="grid grid-cols-2 gap-3">
+              <input 
+                type="number" 
+                name="initialCount" 
+                placeholder="Antall" 
+                required 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+              <input 
+                type="number" 
+                name="minThreshold" 
+                placeholder="Min.nivå" 
+                value="2"
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
             </div>
-            <button type="submit" class="w-full bg-white text-amber-600 font-black py-4 rounded-xl uppercase tracking-widest shadow-md">Legg til</button>
+            
+            <button 
+              type="submit" 
+              class="w-full bg-white text-amber-600 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+            >
+              Legg til
+            </button>
           </form>
         </section>
 
@@ -327,13 +361,89 @@ const availableTypes = Array.from(new Set(stockItems.filter(i => categoryFilter 
         <section class="bg-emerald-500 p-6 rounded-[2rem] shadow-lg text-white">
           <h3 class="font-black text-xs uppercase mb-4 tracking-widest">🔋 Legg til Batterier</h3>
           <form method="POST" class="space-y-4 text-slate-900">
-            <input type="hidden" name="action" value="add_new_stock_type" /><input type="hidden" name="category" value="battery" />
-            <input type="text" name="type" placeholder="Type (AA...)" required class="w-full rounded-xl p-3 font-bold outline-none" />
-            <div class="grid grid-cols-2 gap-2">
-              <input type="number" name="initialCount" placeholder="Antall" required class="rounded-xl p-3 font-bold outline-none" />
-              <input type="number" name="minThreshold" placeholder="Min.nivå" class="rounded-xl p-3 font-bold outline-none" />
+            <input type="hidden" name="action" value="add_new_stock_type" />
+            <input type="hidden" name="category" value="battery" />
+            
+            <input 
+              type="text" 
+              name="type" 
+              placeholder="Type (AA, AAA...)" 
+              required 
+              class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+            />
+            
+            <div class="grid grid-cols-2 gap-3">
+              <input 
+                type="number" 
+                name="initialCount" 
+                placeholder="Antall" 
+                required 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+              <input 
+                type="number" 
+                name="minThreshold" 
+                placeholder="Min.nivå" 
+                value="2"
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
             </div>
-            <button type="submit" class="w-full bg-white text-emerald-600 font-black py-4 rounded-xl uppercase tracking-widest shadow-md">Legg til</button>
+            
+            <button 
+              type="submit" 
+              class="w-full bg-white text-emerald-600 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+            >
+              Legg til
+            </button>
+          </form>
+        </section>
+
+        {/* SKJEMA FOR PRINTER / BLEKK */}
+        <section class="bg-purple-500 p-6 rounded-[2rem] shadow-lg text-white">
+          <h3 class="font-black text-xs uppercase mb-4 tracking-widest">🖨️ Legg til Printerblekk</h3>
+          <form method="POST" class="space-y-4 text-slate-900">
+            <input type="hidden" name="action" value="add_new_stock_type" />
+            <input type="hidden" name="category" value="ink" />
+            
+            <div class="grid grid-cols-2 gap-3">
+              <input 
+                type="text" 
+                name="type" 
+                placeholder="Type (HP304...)" 
+                required 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+              <input 
+                type="text" 
+                name="shape" 
+                placeholder="Farge (BK, C...)" 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+              <input 
+                type="number" 
+                name="initialCount" 
+                placeholder="Antall" 
+                required 
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+              <input 
+                type="number" 
+                name="minThreshold" 
+                placeholder="Min.nivå" 
+                value="1"
+                class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400" 
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              class="w-full bg-white text-purple-600 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+            >
+              Legg til
+            </button>
           </form>
         </section>
       </div>

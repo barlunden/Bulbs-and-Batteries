@@ -360,7 +360,7 @@ const stockMap = Object.fromEntries(
         >
       </div>
 
-      <div class="p-6 space-y-6">
+      <div class="p-6 pb-32 space-y-6">
         {
           editItem ? (
             <div class="bg-white border-2 border-indigo-100 rounded-[2.5rem] p-6 shadow-xl">
@@ -438,11 +438,268 @@ const stockMap = Object.fromEntries(
             </div>
           ) : (
             <div class="space-y-4">
-              {/* HER KOMMER DINE TRE REGISTRERINGSKORT (LAMPE, BATTERI, PRINTER) */}
-              {/* Du kan beholde dem som de er, men bruk de samme Tailwind-klassene for input-feltene som over */}
-              <p class="text-center text-slate-400 text-xs italic">
-                Velg type utstyr under for å starte registrering.
-              </p>
+              {/* LAMPE/PÆRE */}
+              <section class="bg-amber-500 p-6 rounded-[2rem] shadow-lg text-white">
+                <h3 class="font-black text-xs uppercase mb-4 tracking-widest">
+                  💡 Registrer Lampe
+                </h3>
+                <form method="POST" class="space-y-4 text-slate-900">
+                  <input type="hidden" name="action" value="create" />
+                  <input type="hidden" name="category" value="bulb" />
+
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Navn (f.eks. Taklampe stue)"
+                    required
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      name="type"
+                      placeholder="Type (E27...)"
+                      required
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="text"
+                      name="shape"
+                      placeholder="Form (Globe...)"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                  </div>
+
+                  {
+                    advancedMode && (
+                      <div class="grid grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          name="building"
+                          placeholder="Bygg"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                        <input
+                          type="text"
+                          name="department"
+                          placeholder="Avdeling"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                        <input
+                          type="text"
+                          name="detail"
+                          placeholder="Rom"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                      </div>
+                    )
+                  }
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      name="quantity"
+                      placeholder="Antall i enheten"
+                      value="1"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="number"
+                      name="requiredCount"
+                      placeholder="Reserve"
+                      value="1"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                  </div>
+
+                  <textarea
+                    name="notes"
+                    placeholder="Notater (valgfritt)"
+                    rows="2"
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <button
+                    type="submit"
+                    class="w-full bg-white text-amber-600 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+                  >
+                    Legg til lampe
+                  </button>
+                </form>
+              </section>
+
+              {/* BATTERI */}
+              <section class="bg-emerald-500 p-6 rounded-[2rem] shadow-lg text-white">
+                <h3 class="font-black text-xs uppercase mb-4 tracking-widest">
+                  🔋 Registrer Batteri
+                </h3>
+                <form method="POST" class="space-y-4 text-slate-900">
+                  <input type="hidden" name="action" value="create" />
+                  <input type="hidden" name="category" value="battery" />
+
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Navn (f.eks. Fjernkontroll TV)"
+                    required
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <input
+                    type="text"
+                    name="type"
+                    placeholder="Type (AA, AAA...)"
+                    required
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  {
+                    advancedMode && (
+                      <div class="grid grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          name="building"
+                          placeholder="Bygg"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                        <input
+                          type="text"
+                          name="department"
+                          placeholder="Avdeling"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                        <input
+                          type="text"
+                          name="detail"
+                          placeholder="Rom"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                      </div>
+                    )
+                  }
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      name="quantity"
+                      placeholder="Antall i enheten"
+                      value="2"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="number"
+                      name="requiredCount"
+                      placeholder="Reserve"
+                      value="1"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                  </div>
+
+                  <textarea
+                    name="notes"
+                    placeholder="Notater (valgfritt)"
+                    rows="2"
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <button
+                    type="submit"
+                    class="w-full bg-white text-emerald-600 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+                  >
+                    Legg til batteri
+                  </button>
+                </form>
+              </section>
+
+              {/* PRINTER / BLEKK */}
+              <section class="bg-purple-500 p-6 rounded-[2rem] shadow-lg text-white">
+                <h3 class="font-black text-xs uppercase mb-4 tracking-widest">
+                  🖨️ Registrer Printer
+                </h3>
+                <form method="POST" class="space-y-4 text-slate-900">
+                  <input type="hidden" name="action" value="create" />
+                  <input type="hidden" name="category" value="ink" />
+
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Navn (f.eks. HP Kontor)"
+                    required
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      name="type"
+                      placeholder="Blekktype (HP304...)"
+                      required
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="text"
+                      name="model"
+                      placeholder="Modell"
+                      class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                    />
+                  </div>
+
+                  {
+                    advancedMode && (
+                      <div class="grid grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          name="building"
+                          placeholder="Bygg"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                        <input
+                          type="text"
+                          name="department"
+                          placeholder="Avdeling"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                        <input
+                          type="text"
+                          name="detail"
+                          placeholder="Rom"
+                          class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                        />
+                      </div>
+                    )
+                  }
+
+                  <textarea
+                    name="cartridges"
+                    placeholder="Patroner (kommaseparert: BK,C,M,Y)"
+                    rows="2"
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <input
+                    type="number"
+                    name="quantity"
+                    placeholder="Antall printere"
+                    value="1"
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <textarea
+                    name="notes"
+                    placeholder="Notater (valgfritt)"
+                    rows="2"
+                    class="w-full bg-white border-2 border-slate-100 rounded-2xl px-4 py-3 font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  <button
+                    type="submit"
+                    class="w-full bg-white text-purple-600 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest"
+                  >
+                    Legg til printer
+                  </button>
+                </form>
+              </section>
             </div>
           )
         }
